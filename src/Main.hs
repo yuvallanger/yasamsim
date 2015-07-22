@@ -10,21 +10,22 @@ data Point
 
 data Civilian
     = Civilian
-    { civilianHealth :: !Int
-    , civilianPower  :: !Int
-    , civilianSpeed  :: !Int
-    , civilianWeapon :: !Weapon
+    { civilianHealth   :: !Int
+    , civilianPosition :: !Point
+    , civilianPower    :: !Int
+    , civilianSpeed    :: !Int
+    , civilianWeapon   :: !Weapon
     }
 
 
 data Player
     = Player
-    { playerCoord  :: !Point
-    , playerSpeed  :: !Int
-    , playerPower  :: !Int
-    , playerHealth :: !Int
-    , playerEnergy :: !Int
-    , playerWeapon :: !Weapon
+    { playerPosition :: !Point
+    , playerSpeed    :: !Int
+    , playerPower    :: !Int
+    , playerHealth   :: !Int
+    , playerEnergy   :: !Int
+    , playerWeapon   :: !Weapon
     }
 
 
