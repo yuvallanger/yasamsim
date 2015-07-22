@@ -5,6 +5,7 @@ data Point
     = Point
     { pointX :: !Int
     , pointY :: !Int
+    , pointZ :: !Int
     }
 
 
@@ -26,7 +27,13 @@ data Player
     , playerHealth   :: !Int
     , playerEnergy   :: !Int
     , playerWeapon   :: !Weapon
+    , player         :: !CharacterState
     }
+
+
+data CharacterState
+    = Walk
+    | Jump
 
 
 data Weapon
