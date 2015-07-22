@@ -9,15 +9,22 @@ data Point
     }
 
 
+data Orientation
+    = FacingLeft
+    | FacingRight
+    | FacingAway
+    | FacingPlayer
+
 data Character
     = Character
-    { characterPosition :: !Point
-    , characterPower    :: !Int
-    , characterSpeed    :: !Int
-    , characterWeapon   :: !Weapon
-    , characterHealth   :: !Int
-    , characterEnergy   :: !Int
-    , characterState    :: !CharacterState
+    { characterPosition    :: !Point
+    , characterPower       :: !Int
+    , characterSpeed       :: !Int
+    , characterWeapon      :: !Weapon
+    , characterHealth      :: !Int
+    , characterEnergy      :: !Int
+    , characterState       :: !CharacterState
+    , characterOrientation :: !Orientation
     }
 
 
