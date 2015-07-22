@@ -9,25 +9,15 @@ data Point
     }
 
 
-data Civilian
-    = Civilian
-    { civilianHealth   :: !Int
-    , civilianPosition :: !Point
-    , civilianPower    :: !Int
-    , civilianSpeed    :: !Int
-    , civilianWeapon   :: !Weapon
-    }
-
-
-data Player
-    = Player
-    { playerPosition :: !Point
-    , playerSpeed    :: !Int
-    , playerPower    :: !Int
-    , playerHealth   :: !Int
-    , playerEnergy   :: !Int
-    , playerWeapon   :: !Weapon
-    , player         :: !CharacterState
+data Character
+    = Character
+    { characterPosition :: !Point
+    , characterPower    :: !Int
+    , characterSpeed    :: !Int
+    , characterWeapon   :: !Weapon
+    , characterHealth   :: !Int
+    , characterEnergy   :: !Int
+    , characterState    :: !CharacterState
     }
 
 
