@@ -1,6 +1,9 @@
 module Main where
 
 
+import Graphics.Gloss.Interface.IO.Game
+
+
 data Point
     = Point
     { pointX :: !Int
@@ -17,7 +20,7 @@ data Orientation
 
 data Character
     = Character
-    { characterPosition    :: !Point
+    { characterPosition    :: !Main.Point
     , characterPower       :: !Int
     , characterSpeed       :: !Int
     , characterWeapon      :: !Weapon
@@ -38,5 +41,47 @@ data Weapon
     | Club
 
 
+data Item
+    = Crate
+    | Medipack
+
+
+data World
+    = World
+    { player    :: CharacterState
+    , civilians :: [CharacterState]
+    , items     :: [Item]
+    }
+
+
+drawScene :: World -> IO Picture
+drawScene = undefined
+
+
+handleInput :: a
+handleInput = undefined
+
+
+stepGame :: a
+stepGame = undefined
+
+
+initialWorld :: World
+initialWorld
+    = World
+    { player    = undefined
+    , civilians = undefined
+    , items     = undefined
+    }
+
+
 main :: IO ()
-main = undefined
+main = do
+    playIO
+        (InWindow "Yasam Sim" (1, 1) (500, 500))
+        azure
+        10
+        initialWorld
+        drawScene
+        handleInput
+        stepGame
