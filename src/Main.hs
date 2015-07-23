@@ -23,6 +23,18 @@ import Data.Monoid
 	( (<>)
 	, mempty
 	)
+import Graphics.Gloss.Data.Picture
+	( blank
+	, color
+	, rectangleWire
+	, rectanglePath
+	, polygon
+	, translate
+	)
+import Graphics.Gloss.Data.Color
+	( violet
+	, white
+	)
 import Graphics.Gloss.Interface.IO.Game
 	( playIO
 	, Event
@@ -32,11 +44,16 @@ import Graphics.Gloss.Interface.IO.Game
 	)
 
 
+sceneWidth, sceneHeight :: Int
+sceneWidth  = 640
+sceneHeight = 480
+
+
 data Point
 	= Point
-	{ pointX :: Int
-	, pointY :: Int
-	, pointZ :: Int
+	{ pointX :: Float
+	, pointY :: Float
+	, pointZ :: Float
 	}
 
 
@@ -62,6 +79,7 @@ data Character
 data CharacterState
 	= Walk
 	| Jump
+	| Stand
 
 
 data Weapon
@@ -76,16 +94,27 @@ data Item
 
 data World
 	= World
-	{ player    :: CharacterState
-	, civilians :: [CharacterState]
+	{ player    :: Character
+	, civilians :: [Character]
 	, items     :: [Item]
 	}
 
 
 drawScene :: World -> IO Picture
-drawScene w = return (background)
+drawScene world = return (background <> player)
 	where
-	background = mempty
+	background = drawBackground world
+	player = drawPlayer world
+
+drawBackground :: World -> Picture
+drawBackground world = color white . polygon $ rectanglePath (fromIntegral sceneWidth) (fromIntegral sceneHeight)
+
+drawPlayer :: World -> Picture
+drawPlayer world = translate x y . color violet $ rectangleWire 25 35
+	where
+	playerPos = characterPosition . player $ world
+	x = pointX playerPos
+	y = pointY playerPos + pointZ playerPos
 
 
 handleInput :: Event -> World -> IO World
@@ -100,10 +129,29 @@ stepGame time world = do
 	return world
 
 
+initialPlayer :: Character
+initialPlayer
+	= Character
+	{ characterPosition
+		= Main.Point
+		{ pointX = -200
+		, pointY = 0
+		, pointZ = 0
+		}
+	, characterPower       = 30
+	, characterSpeed       = 30
+	, characterWeapon      = Club
+	, characterHealth      = 100
+	, characterEnergy      = 100
+	, characterState       = Stand
+	, characterOrientation = FacingRight
+	}
+
+
 initialWorld :: World
 initialWorld
 	= World
-	{ player    = undefined
+	{ player    = initialPlayer
 	, civilians = undefined
 	, items     = undefined
 	}
@@ -112,9 +160,9 @@ initialWorld
 main :: IO ()
 main = do
 	playIO
-		(InWindow "Yasam Sim" (1, 1) (500, 500))
+		(InWindow "Yasam Sim" (1, 1) (sceneWidth, sceneHeight))
 		black
-		10
+		30
 		initialWorld
 		drawScene
 		handleInput
