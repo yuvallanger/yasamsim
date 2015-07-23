@@ -1,7 +1,17 @@
 module Main where
 
 
+import Data.Monoid
+    ( (<>)
+    , mempty
+    )
 import Graphics.Gloss.Interface.IO.Game
+    ( playIO
+    , Event
+    , Display (InWindow)
+    , Picture
+    , black
+    )
 
 
 data Point
@@ -55,15 +65,21 @@ data World
 
 
 drawScene :: World -> IO Picture
-drawScene = undefined
+drawScene w = return (background)
+    where
+    background = mempty
 
 
-handleInput :: a
-handleInput = undefined
+handleInput :: Event -> World -> IO World
+handleInput event world = do
+    putStrLn "handleInput"
+    return world
 
 
-stepGame :: a
-stepGame = undefined
+stepGame :: Float -> World -> IO World
+stepGame time world = do
+    putStrLn "stepGame"
+    return world
 
 
 initialWorld :: World
@@ -79,7 +95,7 @@ main :: IO ()
 main = do
     playIO
         (InWindow "Yasam Sim" (1, 1) (500, 500))
-        azure
+        black
         10
         initialWorld
         drawScene
