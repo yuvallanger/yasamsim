@@ -16,9 +16,9 @@ import Graphics.Gloss.Interface.IO.Game
 
 data Point
 	= Point
-	{ pointX :: !Int
-	, pointY :: !Int
-	, pointZ :: !Int
+	{ pointX :: Int
+	, pointY :: Int
+	, pointZ :: Int
 	}
 
 
@@ -30,14 +30,14 @@ data Orientation
 
 data Character
 	= Character
-	{ characterPosition    :: !Main.Point
-	, characterPower       :: !Int
-	, characterSpeed       :: !Int
-	, characterWeapon      :: !Weapon
-	, characterHealth      :: !Int
-	, characterEnergy      :: !Int
-	, characterState       :: !CharacterState
-	, characterOrientation :: !Orientation
+	{ characterPosition    :: Main.Point
+	, characterPower       :: Int
+	, characterSpeed       :: Int
+	, characterWeapon      :: Weapon
+	, characterHealth      :: Int
+	, characterEnergy      :: Int
+	, characterState       :: CharacterState
+	, characterOrientation :: Orientation
 	}
 
 
