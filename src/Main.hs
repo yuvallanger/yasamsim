@@ -19,6 +19,12 @@
 module Main where
 
 
+import Data.Set
+	( Set
+	, empty
+	, insert
+	, delete
+	)
 import Data.Monoid
 	( (<>)
 	, mempty
@@ -38,6 +44,15 @@ import Graphics.Gloss.Data.Color
 import Graphics.Gloss.Interface.IO.Game
 	( playIO
 	, Event
+		( EventKey
+		)
+	, Key
+		( Char
+		)
+	, KeyState
+		( Down
+		, Up
+		)
 	, Display (InWindow)
 	, Picture
 	, black
@@ -97,7 +112,20 @@ data World
 	{ player    :: Character
 	, civilians :: [Character]
 	, items     :: [Item]
+	, keyboard  :: Set KeyboardButton
 	}
+
+
+data KeyboardButton
+	= Player1Up
+	| Player1Down
+	| Player1Right
+	| Player1Left
+	| Player2Up
+	| Player2Down
+	| Player2Right
+	| Player2Left
+	deriving (Eq, Ord, Show)
 
 
 drawScene :: World -> IO Picture
@@ -119,13 +147,34 @@ drawPlayer world = translate x y . color violet $ rectangleWire 25 35
 
 handleInput :: Event -> World -> IO World
 handleInput event world = do
-	putStrLn "handleInput"
-	return world
+	let newWorld = case event of
+		EventKey (Char 'w') Down _ _ -> world
+			{ keyboard = insert Player1Up (keyboard world)
+			}
+		EventKey (Char 'w') Up _ _ -> world
+			{ keyboard = delete Player1Up (keyboard world) }
+		EventKey (Char 's') Down _ _ -> world
+			{ keyboard = insert Player1Down (keyboard world)
+			}
+		EventKey (Char 's') Up _ _ -> world
+			{ keyboard = delete Player1Down (keyboard world) }
+		EventKey (Char 'd') Down _ _ -> world
+			{ keyboard = insert Player1Right (keyboard world)
+			}
+		EventKey (Char 'd') Up _ _ -> world
+			{ keyboard = delete Player1Right (keyboard world) }
+		EventKey (Char 'a') Down _ _ -> world
+			{ keyboard = insert Player1Left (keyboard world)
+			}
+		EventKey (Char 'a') Up _ _ -> world
+			{ keyboard = delete Player1Left (keyboard world) }
+		otherwise -> world
+	return newWorld
 
 
 stepGame :: Float -> World -> IO World
 stepGame time world = do
-	putStrLn "stepGame"
+	print . keyboard $ world
 	return world
 
 
@@ -152,8 +201,9 @@ initialWorld :: World
 initialWorld
 	= World
 	{ player    = initialPlayer
-	, civilians = undefined
-	, items     = undefined
+	, civilians = []
+	, items     = []
+	, keyboard  = empty
 	}
 
 
