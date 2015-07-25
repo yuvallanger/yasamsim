@@ -19,11 +19,15 @@
 module Main where
 
 
+import Debug.Trace
+	( traceIO
+	)
 import Data.Set
 	( Set
 	, empty
 	, insert
 	, delete
+	, member
 	)
 import Data.Monoid
 	( (<>)
@@ -40,6 +44,9 @@ import Graphics.Gloss.Data.Picture
 import Graphics.Gloss.Data.Color
 	( violet
 	, white
+	)
+import Graphics.Gloss.Data.Vector
+	( Vector
 	)
 import Graphics.Gloss.Interface.IO.Game
 	( playIO
@@ -64,34 +71,29 @@ sceneWidth  = 640
 sceneHeight = 480
 
 
-data Point
-	= Point
-	{ pointX :: Float
-	, pointY :: Float
-	, pointZ :: Float
-	}
-
-
-data Orientation
-	= FacingLeft
-	| FacingRight
-	| FacingAway
-	| FacingPlayer
+data Direction
+	= DirectionLeft
+	| DirectionRight
+	| DirectionUp
+	| DirectionDown
+	deriving (Eq, Ord, Show)
 
 data Character
 	= Character
-	{ characterPosition    :: Main.Point
+	{ characterPosition    :: Vector
+	, characterZ           :: Float
 	, characterPower       :: Int
-	, characterSpeed       :: Int
+	, characterSpeed       :: Float
 	, characterWeapon      :: Weapon
 	, characterHealth      :: Int
 	, characterEnergy      :: Int
-	, characterState       :: CharacterState
-	, characterOrientation :: Orientation
+	, characterState       :: CharacterActionState
+	, characterOrientation :: Direction
+	, characterDirection   :: Set Direction
 	}
 
 
-data CharacterState
+data CharacterActionState
 	= Walk
 	| Jump
 	| Stand
@@ -107,103 +109,208 @@ data Item
 	| Medipack
 
 
-data World
-	= World
-	{ player    :: Character
-	, civilians :: [Character]
-	, items     :: [Item]
-	, keyboard  :: Set KeyboardButton
+data Game
+	= Game
+	{ player                :: Character
+	, civilians             :: [Character]
+	, items                 :: [Item]
+	, player1KeyboardState  :: Set KeyboardButton
+	, player2KeyboardState  :: Set KeyboardButton
 	}
 
 
 data KeyboardButton
-	= Player1Up
-	| Player1Down
-	| Player1Right
-	| Player1Left
-	| Player2Up
-	| Player2Down
-	| Player2Right
-	| Player2Left
+	= ButtonUp
+	| ButtonDown
+	| ButtonLeft
+	| ButtonRight
+	| ButtonPunch
 	deriving (Eq, Ord, Show)
 
 
-drawScene :: World -> IO Picture
-drawScene world = return (background <> player)
+drawScene :: Game -> IO Picture
+drawScene game = return (background <> playerPicture)
 	where
-	background = drawBackground world
-	player = drawPlayer world
+	background = drawBackground game
+	playerPicture = drawPlayer game
 
-drawBackground :: World -> Picture
-drawBackground world = color white . polygon $ rectanglePath (fromIntegral sceneWidth) (fromIntegral sceneHeight)
+drawBackground :: Game -> Picture
+drawBackground game = color white . polygon $ rectanglePath (fromIntegral sceneWidth) (fromIntegral sceneHeight)
 
-drawPlayer :: World -> Picture
-drawPlayer world = translate x y . color violet $ rectangleWire 25 35
+drawPlayer :: Game -> Picture
+drawPlayer game = translate x (y+z) . color violet $ rectangleWire 25 35
 	where
-	playerPos = characterPosition . player $ world
-	x = pointX playerPos
-	y = pointY playerPos + pointZ playerPos
+	oldPlayer = player game
+	playerPos = characterPosition oldPlayer
+	z         = characterZ        oldPlayer
+	(x, y)    = playerPos
 
 
-handleInput :: Event -> World -> IO World
-handleInput event world = do
-	let newWorld = case event of
-		EventKey (Char 'w') Down _ _ -> world
-			{ keyboard = insert Player1Up (keyboard world)
+handleInput :: Event -> Game -> IO Game
+handleInput event game =
+	case event of
+		EventKey (Char 'w') keyState _ _ -> do
+			traceIO "EventKey: "
+			traceIO $ "\t" ++ show event
+			traceIO $ "\t" ++ (show . characterDirection $ player game)
+			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			let newGame = handleDirectionKey
+				game
+				DirectionDown
+				DirectionUp
+				ButtonDown
+				ButtonUp
+				keyState
+			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
+			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			return newGame
+		EventKey (Char 's') keyState _ _ -> do
+			traceIO "EventKey: "
+			traceIO $ "\t" ++ show event
+			traceIO $ "\t" ++ (show . characterDirection $ player game)
+			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			let newGame = handleDirectionKey
+				game
+				DirectionUp
+				DirectionDown
+				ButtonUp
+				ButtonDown
+				keyState
+			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
+			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			return newGame
+		EventKey (Char 'a') keyState _ _ -> do
+			traceIO "EventKey: "
+			traceIO $ "\t" ++ show event
+			traceIO $ "\t" ++ (show . characterDirection $ player game)
+			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			let newGame = handleDirectionKey
+				game
+				DirectionRight
+				DirectionLeft
+				ButtonRight
+				ButtonLeft
+				keyState
+			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
+			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			return newGame
+		EventKey (Char 'd') keyState _ _ -> do
+			traceIO "EventKey: "
+			traceIO $ "\t" ++ show event
+			traceIO $ "\t" ++ (show . characterDirection $ player game)
+			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			let newGame = handleDirectionKey
+				game
+				DirectionLeft
+				DirectionRight
+				ButtonLeft
+				ButtonRight
+				keyState
+			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
+			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			return newGame
+		_ -> return game
+
+handleDirectionKey
+	:: Game
+	-> Direction
+	-> Direction
+	-> KeyboardButton
+	-> KeyboardButton
+	-> KeyState
+	-> Game
+handleDirectionKey
+	game
+	directionFrom
+	directionTo
+	buttonFrom
+	buttonTo
+	keyState =
+	case keyState of
+		Down -> game
+			{ player =
+				oldPlayer1
+				{ characterDirection =
+					insert directionTo (
+					    delete
+							directionFrom
+							oldPlayer1Direction
+					)
+				}
+			, player1KeyboardState =
+				insert buttonTo oldPlayer1KeyboardState
 			}
-		EventKey (Char 'w') Up _ _ -> world
-			{ keyboard = delete Player1Up (keyboard world) }
-		EventKey (Char 's') Down _ _ -> world
-			{ keyboard = insert Player1Down (keyboard world)
+		Up -> game
+			{ player =
+				oldPlayer1
+				{ characterDirection =
+					delete
+						directionTo
+						oldPlayer1Direction
+				}
+			, player1KeyboardState =
+				delete
+					buttonTo
+					oldPlayer1KeyboardState
 			}
-		EventKey (Char 's') Up _ _ -> world
-			{ keyboard = delete Player1Down (keyboard world) }
-		EventKey (Char 'd') Down _ _ -> world
-			{ keyboard = insert Player1Right (keyboard world)
-			}
-		EventKey (Char 'd') Up _ _ -> world
-			{ keyboard = delete Player1Right (keyboard world) }
-		EventKey (Char 'a') Down _ _ -> world
-			{ keyboard = insert Player1Left (keyboard world)
-			}
-		EventKey (Char 'a') Up _ _ -> world
-			{ keyboard = delete Player1Left (keyboard world) }
-		otherwise -> world
-	return newWorld
+	where
+	oldPlayer1 = player game
+	oldPlayer1Direction = characterDirection oldPlayer1
+	oldPlayer1KeyboardState = player1KeyboardState game
 
 
-stepGame :: Float -> World -> IO World
-stepGame time world = do
-	print . keyboard $ world
-	return world
+stepGame :: Float -> Game -> IO Game
+stepGame time game = do
+	return newGame
+	where
+	oldPlayer = player game
+	newPlayer = moveCharacter time oldPlayer
+	newGame  = game { player = newPlayer }
+
+moveCharacter
+	:: Float
+	-> Character
+	-> Character
+moveCharacter time character
+	= character { characterPosition = newPosition }
+	where
+	(oldX, oldY) = characterPosition character
+	oldCharacterDirection = characterDirection character
+	oldCharacterSpeed = characterSpeed character
+	speedX
+		| member DirectionLeft oldCharacterDirection  = -oldCharacterSpeed
+		| member DirectionRight oldCharacterDirection =  oldCharacterSpeed
+		| otherwise = 0
+	speedY
+		| member DirectionUp oldCharacterDirection   =  oldCharacterSpeed
+		| member DirectionDown oldCharacterDirection = -oldCharacterSpeed
+		| otherwise = 0
+	newPosition = (oldX + (time * speedX), oldY + (time * speedY))
 
 
 initialPlayer :: Character
 initialPlayer
 	= Character
-	{ characterPosition
-		= Main.Point
-		{ pointX = -200
-		, pointY = 0
-		, pointZ = 0
-		}
+	{ characterPosition    = (-200, 0)
+	, characterZ           = 0
 	, characterPower       = 30
 	, characterSpeed       = 30
 	, characterWeapon      = Club
 	, characterHealth      = 100
 	, characterEnergy      = 100
 	, characterState       = Stand
-	, characterOrientation = FacingRight
+	, characterOrientation = DirectionRight
+	, characterDirection   = empty
 	}
 
 
-initialWorld :: World
-initialWorld
-	= World
+initialGame :: Game
+initialGame
+	= Game
 	{ player    = initialPlayer
 	, civilians = []
 	, items     = []
-	, keyboard  = empty
+	, player1KeyboardState  = empty
 	}
 
 
@@ -213,7 +320,7 @@ main = do
 		(InWindow "Yasam Sim" (1, 1) (sceneWidth, sceneHeight))
 		black
 		30
-		initialWorld
+		initialGame
 		drawScene
 		handleInput
 		stepGame
