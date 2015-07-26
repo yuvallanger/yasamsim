@@ -15,12 +15,19 @@
    You should have received a copy of the GNU Affero General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. -}
 
+{-: LANGUAGE OverloadedParenthesis :-}
+
 
 module Main where
 
 
 import Debug.Trace
 	( traceIO
+	)
+import Data.Map.Strict
+	( Map
+	, insert
+	, lookup
 	)
 import Data.Set
 	( Set
@@ -31,15 +38,17 @@ import Data.Set
 	)
 import Data.Monoid
 	( (<>)
-	, mempty
+	)
+import Graphics.Gloss.Data.Bitmap
+	( loadBMP
 	)
 import Graphics.Gloss.Data.Picture
-	( blank
-	, color
+	( color
 	, rectangleWire
 	, rectanglePath
 	, polygon
 	, translate
+	, Point
 	)
 import Graphics.Gloss.Data.Color
 	( violet
@@ -80,7 +89,7 @@ data Direction
 
 data Character
 	= Character
-	{ characterPosition    :: Vector
+	{ characterPosition    :: Point
 	, characterZ           :: Float
 	, characterPower       :: Int
 	, characterSpeed       :: Float
@@ -89,7 +98,6 @@ data Character
 	, characterEnergy      :: Int
 	, characterState       :: CharacterActionState
 	, characterOrientation :: Direction
-	, characterDirection   :: Set Direction
 	}
 
 
@@ -116,15 +124,16 @@ data Game
 	, items                 :: [Item]
 	, player1KeyboardState  :: Set KeyboardButton
 	, player2KeyboardState  :: Set KeyboardButton
+	, imageAssets           :: Map String Picture
 	}
 
 
 data KeyboardButton
-	= ButtonUp
-	| ButtonDown
-	| ButtonLeft
-	| ButtonRight
-	| ButtonPunch
+	= ButtonUp    
+	| ButtonDown  
+	| ButtonLeft  
+	| ButtonRight 
+	| ButtonPunch 
 	deriving (Eq, Ord, Show)
 
 
@@ -251,7 +260,7 @@ handleDirectionKey
 			, player1KeyboardState =
 				delete
 					buttonTo
-					oldPlayer1KeyboardState
+					oldPlayer1KeyboardState 
 			}
 	where
 	oldPlayer1 = player game
@@ -268,9 +277,9 @@ stepGame time game = do
 	newGame  = game { player = newPlayer }
 
 moveCharacter
-	:: Float
-	-> Character
-	-> Character
+	:: Float     -- | ^ 
+	-> Character -- | ^
+	-> Character -- | ^
 moveCharacter time character
 	= character { characterPosition = newPosition }
 	where
