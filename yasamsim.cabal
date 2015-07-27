@@ -34,6 +34,7 @@ executable yasamsim
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base,
+                       lens,
                        containers,
                        gloss
   hs-source-dirs:      src

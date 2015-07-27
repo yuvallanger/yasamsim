@@ -15,19 +15,17 @@
    You should have received a copy of the GNU Affero General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. -}
 
+
 {-: LANGUAGE OverloadedParenthesis :-}
+{-# LANGUAGE TemplateHaskell #-}
 
 
 module Main where
 
 
+import Control.Lens
 import Debug.Trace
 	( traceIO
-	)
-import Data.Map.Strict
-	( Map
-	, insert
-	, lookup
 	)
 import Data.Set
 	( Set
@@ -38,17 +36,15 @@ import Data.Set
 	)
 import Data.Monoid
 	( (<>)
-	)
-import Graphics.Gloss.Data.Bitmap
-	( loadBMP
+	, mempty
 	)
 import Graphics.Gloss.Data.Picture
-	( color
+	( blank
+	, color
 	, rectangleWire
 	, rectanglePath
 	, polygon
 	, translate
-	, Point
 	)
 import Graphics.Gloss.Data.Color
 	( violet
@@ -89,15 +85,16 @@ data Direction
 
 data Character
 	= Character
-	{ characterPosition    :: Point
-	, characterZ           :: Float
-	, characterPower       :: Int
-	, characterSpeed       :: Float
-	, characterWeapon      :: Weapon
-	, characterHealth      :: Int
-	, characterEnergy      :: Int
-	, characterState       :: CharacterActionState
-	, characterOrientation :: Direction
+	{ _characterPosition    :: Vector
+	, _characterZ           :: Float
+	, _characterPower       :: Int
+	, _characterSpeed       :: Float
+	, _characterWeapon      :: Weapon
+	, _characterHealth      :: Int
+	, _characterEnergy      :: Int
+	, _characterState       :: CharacterActionState
+	, _characterOrientation :: Direction
+	, _characterDirection   :: Set Direction
 	}
 
 
@@ -119,22 +116,25 @@ data Item
 
 data Game
 	= Game
-	{ player                :: Character
-	, civilians             :: [Character]
-	, items                 :: [Item]
-	, player1KeyboardState  :: Set KeyboardButton
-	, player2KeyboardState  :: Set KeyboardButton
-	, imageAssets           :: Map String Picture
+	{ _player                :: Character
+	, _civilians             :: [Character]
+	, _items                 :: [Item]
+	, _player1KeyboardState  :: Set KeyboardButton
+	, _player2KeyboardState  :: Set KeyboardButton
 	}
 
 
 data KeyboardButton
-	= ButtonUp    
-	| ButtonDown  
-	| ButtonLeft  
-	| ButtonRight 
-	| ButtonPunch 
+	= ButtonUp
+	| ButtonDown
+	| ButtonLeft
+	| ButtonRight
+	| ButtonPunch
 	deriving (Eq, Ord, Show)
+
+
+makeLenses ''Game
+makeLenses ''Character
 
 
 drawScene :: Game -> IO Picture
@@ -260,7 +260,7 @@ handleDirectionKey
 			, player1KeyboardState =
 				delete
 					buttonTo
-					oldPlayer1KeyboardState 
+					oldPlayer1KeyboardState
 			}
 	where
 	oldPlayer1 = player game
@@ -277,9 +277,9 @@ stepGame time game = do
 	newGame  = game { player = newPlayer }
 
 moveCharacter
-	:: Float     -- | ^ 
-	-> Character -- | ^
-	-> Character -- | ^
+	:: Float
+	-> Character
+	-> Character
 moveCharacter time character
 	= character { characterPosition = newPosition }
 	where
