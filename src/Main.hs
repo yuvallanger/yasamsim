@@ -149,20 +149,16 @@ drawBackground game = color white . polygon $ rectanglePath (fromIntegral sceneW
 drawPlayer :: Game -> Picture
 drawPlayer game = translate x (y+z) . color violet $ rectangleWire 25 35
 	where
-	oldPlayer = player game
-	playerPos = characterPosition oldPlayer
-	z         = characterZ        oldPlayer
-	(x, y)    = playerPos
+	oldPlayer = game^.player
+	(x, y)    = oldPlayer^.characterPosition
+	z         = oldPlayer^.characterZ
 
 
 handleInput :: Event -> Game -> IO Game
 handleInput event game =
 	case event of
 		EventKey (Char 'w') keyState _ _ -> do
-			traceIO "EventKey: "
-			traceIO $ "\t" ++ show event
-			traceIO $ "\t" ++ (show . characterDirection $ player game)
-			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			traceOldStateIO
 			let newGame = handleDirectionKey
 				game
 				DirectionDown
@@ -170,14 +166,10 @@ handleInput event game =
 				ButtonDown
 				ButtonUp
 				keyState
-			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
-			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			traceNewStateIO newGame
 			return newGame
 		EventKey (Char 's') keyState _ _ -> do
-			traceIO "EventKey: "
-			traceIO $ "\t" ++ show event
-			traceIO $ "\t" ++ (show . characterDirection $ player game)
-			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			traceOldStateIO
 			let newGame = handleDirectionKey
 				game
 				DirectionUp
@@ -185,14 +177,10 @@ handleInput event game =
 				ButtonUp
 				ButtonDown
 				keyState
-			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
-			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			traceNewStateIO newGame
 			return newGame
 		EventKey (Char 'a') keyState _ _ -> do
-			traceIO "EventKey: "
-			traceIO $ "\t" ++ show event
-			traceIO $ "\t" ++ (show . characterDirection $ player game)
-			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			traceOldStateIO
 			let newGame = handleDirectionKey
 				game
 				DirectionRight
@@ -200,14 +188,10 @@ handleInput event game =
 				ButtonRight
 				ButtonLeft
 				keyState
-			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
-			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			traceNewStateIO newGame
 			return newGame
 		EventKey (Char 'd') keyState _ _ -> do
-			traceIO "EventKey: "
-			traceIO $ "\t" ++ show event
-			traceIO $ "\t" ++ (show . characterDirection $ player game)
-			traceIO $ "\t" ++ (show $ player1KeyboardState game)
+			traceOldStateIO
 			let newGame = handleDirectionKey
 				game
 				DirectionLeft
@@ -215,10 +199,19 @@ handleInput event game =
 				ButtonLeft
 				ButtonRight
 				keyState
-			traceIO $ "\t" ++ (show . characterDirection $ player newGame)
-			traceIO $ "\t" ++ (show $ player1KeyboardState newGame)
+			traceNewStateIO newGame
 			return newGame
 		_ -> return game
+	where
+	traceOldStateIO =
+		traceIO $ "EventKey:\n" ++ "\n" ++
+			"\t" ++ show event ++ "\n" ++
+			"\t" ++ show (game^.player.characterDirection) ++ "\n" ++
+			"\t" ++ show (game^.player1KeyboardState) ++ "\n"
+	traceNewStateIO newGame =
+		traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
+			"\t" ++ show (newGame^.player1KeyboardState)
+		
 
 handleDirectionKey
 	:: Game
@@ -236,60 +229,40 @@ handleDirectionKey
 	buttonTo
 	keyState =
 	case keyState of
-		Down -> game
-			{ player =
-				oldPlayer1
-				{ characterDirection =
-					insert directionTo (
-					    delete
-							directionFrom
-							oldPlayer1Direction
-					)
-				}
-			, player1KeyboardState =
-				insert buttonTo oldPlayer1KeyboardState
-			}
-		Up -> game
-			{ player =
-				oldPlayer1
-				{ characterDirection =
-					delete
-						directionTo
-						oldPlayer1Direction
-				}
-			, player1KeyboardState =
-				delete
-					buttonTo
-					oldPlayer1KeyboardState
-			}
-	where
-	oldPlayer1 = player game
-	oldPlayer1Direction = characterDirection oldPlayer1
-	oldPlayer1KeyboardState = player1KeyboardState game
+		Down ->
+			over player1KeyboardState
+				(insert buttonTo)
+			. over (player . characterDirection)
+				(insert directionTo . delete directionFrom)
+			$ game
+		Up ->
+			over (player . characterDirection)
+				(delete directionTo)
+			. over player1KeyboardState
+				(delete buttonTo)
+			$ game
 
 
 stepGame :: Float -> Game -> IO Game
-stepGame time game = do
-	return newGame
-	where
-	oldPlayer = player game
-	newPlayer = moveCharacter time oldPlayer
-	newGame  = game { player = newPlayer }
+stepGame time game =
+	return $ player %~ moveCharacter time $ game
 
 moveCharacter
 	:: Float
 	-> Character
 	-> Character
 moveCharacter time character
-	= character { characterPosition = newPosition }
+	= character & characterPosition .~ newPosition
 	where
-	(oldX, oldY) = characterPosition character
-	oldCharacterDirection = characterDirection character
-	oldCharacterSpeed = characterSpeed character
+	(oldX, oldY) = character ^. characterPosition
+	oldCharacterDirection = character ^. characterDirection
+	oldCharacterSpeed = character ^. characterSpeed
+	speedX :: Float
 	speedX
 		| member DirectionLeft oldCharacterDirection  = -oldCharacterSpeed
 		| member DirectionRight oldCharacterDirection =  oldCharacterSpeed
 		| otherwise = 0
+	speedY :: Float
 	speedY
 		| member DirectionUp oldCharacterDirection   =  oldCharacterSpeed
 		| member DirectionDown oldCharacterDirection = -oldCharacterSpeed
@@ -300,26 +273,27 @@ moveCharacter time character
 initialPlayer :: Character
 initialPlayer
 	= Character
-	{ characterPosition    = (-200, 0)
-	, characterZ           = 0
-	, characterPower       = 30
-	, characterSpeed       = 30
-	, characterWeapon      = Club
-	, characterHealth      = 100
-	, characterEnergy      = 100
-	, characterState       = Stand
-	, characterOrientation = DirectionRight
-	, characterDirection   = empty
+	{ _characterPosition    = (-200, 0)
+	, _characterZ           = 0
+	, _characterPower       = 30
+	, _characterSpeed       = 30
+	, _characterWeapon      = Club
+	, _characterHealth      = 100
+	, _characterEnergy      = 100
+	, _characterState       = Stand
+	, _characterOrientation = DirectionRight
+	, _characterDirection   = empty
 	}
 
 
 initialGame :: Game
 initialGame
 	= Game
-	{ player    = initialPlayer
-	, civilians = []
-	, items     = []
-	, player1KeyboardState  = empty
+	{ _player    = initialPlayer
+	, _civilians = []
+	, _items     = []
+	, _player1KeyboardState = empty
+	, _player2KeyboardState = empty
 	}
 
 
