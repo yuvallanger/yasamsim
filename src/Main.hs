@@ -23,6 +23,9 @@
 module Main where
 
 
+import Control.Arrow
+	( (>>>)
+	)
 import Control.Lens
 import Debug.Trace
 	( traceIO
@@ -140,15 +143,15 @@ makeLenses ''Character
 drawScene :: Game -> IO Picture
 drawScene game = return (background <> playerPicture)
 	where
-	background = drawBackground game
-	playerPicture = drawPlayer game
-
-drawBackground :: Game -> Picture
-drawBackground game = color white . polygon $ rectanglePath (fromIntegral sceneWidth) (fromIntegral sceneHeight)
-
-drawPlayer :: Game -> Picture
-drawPlayer game = uncurry translate playerDrawPosition . color violet $ rectangleWire 25 35
-	where
+	background =
+		rectanglePath
+			(fromIntegral sceneWidth)
+			(fromIntegral sceneHeight)
+		& (polygon >>> color white)
+	playerPicture =
+		rectangleWire 25 35
+		& (color violet
+			>>> uncurry translate playerDrawPosition)
 	playerDrawPosition =
 		game ^. player
 		& (\p ->
@@ -162,7 +165,6 @@ handleInput event game =
 		EventKey (Char 'w') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				game
 				DirectionDown
 				DirectionUp
 				ButtonUp
@@ -172,7 +174,6 @@ handleInput event game =
 		EventKey (Char 's') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				game
 				DirectionUp
 				DirectionDown
 				ButtonDown
@@ -182,7 +183,6 @@ handleInput event game =
 		EventKey (Char 'a') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				game
 				DirectionRight
 				DirectionLeft
 				ButtonLeft
@@ -192,7 +192,6 @@ handleInput event game =
 		EventKey (Char 'd') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				game
 				DirectionLeft
 				DirectionRight
 				ButtonRight
@@ -209,31 +208,27 @@ handleInput event game =
 	traceNewStateIO newGame =
 		traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
 			"\t" ++ show (newGame^.player1KeyboardState)
-		
-
-handleDirectionKey
-	:: Game
-	-> Direction      -- ^ The direction at the back of the character.
-	-> Direction      -- ^ The direction at the front of the character.
-	-> KeyboardButton -- ^ The button we wish to change.
-	-> KeyState       -- ^ Whether the button went Up or Down.
-	-> Game
-handleDirectionKey
-	game
-	directionFrom
-	directionTo
-	buttonTo
-	keyState = game & case keyState of
-		Down ->
-			over player1KeyboardState
-				(insert buttonTo)
-			. over (player . characterDirection)
-				(insert directionTo . delete directionFrom)
-		Up ->
-			over (player . characterDirection)
-				(delete directionTo)
-			. over player1KeyboardState
-				(delete buttonTo)
+	handleDirectionKey
+		:: Direction      -- ^ The direction at the back of the character.
+		-> Direction      -- ^ The direction at the front of the character.
+		-> KeyboardButton -- ^ The button we wish to change.
+		-> KeyState       -- ^ Whether the button went Up or Down.
+		-> Game
+	handleDirectionKey
+		directionFrom
+		directionTo
+		buttonTo
+		keyState = game & case keyState of
+			Down ->
+				over (player . characterDirection)
+					(insert directionTo . delete directionFrom)
+				>>> over player1KeyboardState
+					(insert buttonTo)
+			Up ->
+				over player1KeyboardState
+					(delete buttonTo)
+				>>> over (player . characterDirection)
+					(delete directionTo)
 
 
 stepGame :: Float -> Game -> IO Game
@@ -247,8 +242,8 @@ moveCharacter
 moveCharacter time character =
 	character & characterPosition +~ (
 		(xDirection, yDirection)
-		& (both *~ character ^. characterSpeed)
-		. (both *~ time))
+		& ((both *~ time)
+			>>> (both *~ character ^. characterSpeed)))
 	where
 	oldCharacterDirection = character ^. characterDirection :: Set Direction
 	xDirection
