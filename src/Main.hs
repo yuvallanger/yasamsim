@@ -165,7 +165,6 @@ handleInput event game =
 		EventKey (Char 'w') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				DirectionDown
 				DirectionUp
 				ButtonUp
 				keyState
@@ -174,7 +173,6 @@ handleInput event game =
 		EventKey (Char 's') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				DirectionUp
 				DirectionDown
 				ButtonDown
 				keyState
@@ -183,7 +181,6 @@ handleInput event game =
 		EventKey (Char 'a') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				DirectionRight
 				DirectionLeft
 				ButtonLeft
 				keyState
@@ -192,7 +189,6 @@ handleInput event game =
 		EventKey (Char 'd') keyState _ _ -> do
 			traceOldStateIO
 			let newGame = handleDirectionKey
-				DirectionLeft
 				DirectionRight
 				ButtonRight
 				keyState
@@ -209,26 +205,30 @@ handleInput event game =
 		traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
 			"\t" ++ show (newGame^.player1KeyboardState)
 	handleDirectionKey
-		:: Direction      -- ^ The direction at the back of the character.
-		-> Direction      -- ^ The direction at the front of the character.
-		-> KeyboardButton -- ^ The button we wish to change.
+		:: Direction      -- ^ The direction associated with the button.
+		-> KeyboardButton -- ^ The button whose state had changed.
 		-> KeyState       -- ^ Whether the button went Up or Down.
 		-> Game
 	handleDirectionKey
-		directionFrom
-		directionTo
-		buttonTo
+		direction
+		button
 		keyState = game & case keyState of
 			Down ->
 				over (player . characterDirection)
-					(insert directionTo . delete directionFrom)
+					(insert direction . delete directionOpposite)
 				>>> over player1KeyboardState
-					(insert buttonTo)
+					(insert button)
 			Up ->
-				over player1KeyboardState
-					(delete buttonTo)
-				>>> over (player . characterDirection)
-					(delete directionTo)
+				over (player . characterDirection)
+					(delete direction)
+				>>> over player1KeyboardState
+					(delete button)
+		where
+		directionOpposite
+			| direction == DirectionLeft  = DirectionRight
+			| direction == DirectionRight = DirectionLeft
+			| direction == DirectionUp    = DirectionDown
+			| otherwise                   = DirectionUp
 
 
 stepGame :: Float -> Game -> IO Game
