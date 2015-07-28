@@ -163,7 +163,6 @@ handleInput event game =
 				game
 				DirectionDown
 				DirectionUp
-				ButtonDown
 				ButtonUp
 				keyState
 			traceNewStateIO newGame
@@ -174,7 +173,6 @@ handleInput event game =
 				game
 				DirectionUp
 				DirectionDown
-				ButtonUp
 				ButtonDown
 				keyState
 			traceNewStateIO newGame
@@ -185,7 +183,6 @@ handleInput event game =
 				game
 				DirectionRight
 				DirectionLeft
-				ButtonRight
 				ButtonLeft
 				keyState
 			traceNewStateIO newGame
@@ -196,7 +193,6 @@ handleInput event game =
 				game
 				DirectionLeft
 				DirectionRight
-				ButtonLeft
 				ButtonRight
 				keyState
 			traceNewStateIO newGame
@@ -215,32 +211,27 @@ handleInput event game =
 
 handleDirectionKey
 	:: Game
-	-> Direction
-	-> Direction
-	-> KeyboardButton
-	-> KeyboardButton
-	-> KeyState
+	-> Direction      -- ^ The direction at the back of the character.
+	-> Direction      -- ^ The direction at the front of the character.
+	-> KeyboardButton -- ^ The button we wish to change.
+	-> KeyState       -- ^ Whether the button went Up or Down.
 	-> Game
 handleDirectionKey
 	game
 	directionFrom
 	directionTo
-	buttonFrom
 	buttonTo
-	keyState =
-	case keyState of
+	keyState = game & case keyState of
 		Down ->
 			over player1KeyboardState
 				(insert buttonTo)
 			. over (player . characterDirection)
 				(insert directionTo . delete directionFrom)
-			$ game
 		Up ->
 			over (player . characterDirection)
 				(delete directionTo)
 			. over player1KeyboardState
 				(delete buttonTo)
-			$ game
 
 
 stepGame :: Float -> Game -> IO Game
@@ -251,23 +242,21 @@ moveCharacter
 	:: Float
 	-> Character
 	-> Character
-moveCharacter time character
-	= character & characterPosition .~ newPosition
+moveCharacter time character =
+	character & characterPosition +~ (
+		(xDirection, yDirection)
+		& (both *~ character ^. characterSpeed)
+		. (both *~ time))
 	where
-	(oldX, oldY) = character ^. characterPosition
-	oldCharacterDirection = character ^. characterDirection
-	oldCharacterSpeed = character ^. characterSpeed
-	speedX :: Float
-	speedX
-		| member DirectionLeft oldCharacterDirection  = -oldCharacterSpeed
-		| member DirectionRight oldCharacterDirection =  oldCharacterSpeed
+	oldCharacterDirection = character ^. characterDirection :: Set Direction
+	xDirection
+		| member DirectionLeft  oldCharacterDirection = -1
+		| member DirectionRight oldCharacterDirection =  1
 		| otherwise = 0
-	speedY :: Float
-	speedY
-		| member DirectionUp oldCharacterDirection   =  oldCharacterSpeed
-		| member DirectionDown oldCharacterDirection = -oldCharacterSpeed
+	yDirection
+		| member DirectionUp   oldCharacterDirection =  1
+		| member DirectionDown oldCharacterDirection = -1
 		| otherwise = 0
-	newPosition = (oldX + (time * speedX), oldY + (time * speedY))
 
 
 initialPlayer :: Character
