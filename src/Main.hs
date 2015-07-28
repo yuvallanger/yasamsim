@@ -41,6 +41,9 @@ import Data.Monoid
 	( (<>)
 	, mempty
 	)
+import Graphics.Gloss.Data.Bitmap
+	( loadBMP
+	)
 import Graphics.Gloss.Data.Picture
 	( blank
 	, color
@@ -136,27 +139,49 @@ data KeyboardButton
 	deriving (Eq, Ord, Show)
 
 
+data Assets
+	= Assets
+	{ _heroAssets :: HeroAssets
+	}
+
+
+data HeroAssets
+	= HeroAssets
+	{ _heroFacingFront       :: Picture
+	, _heroFacingBack        :: Picture
+	, _heroFacingLeft  :: Picture
+	, _heroFacingRight :: Picture
+	}
+
+
 makeLenses ''Game
 makeLenses ''Character
+makeLenses ''Assets
+makeLenses ''HeroAssets
 
 
-drawScene :: Game -> IO Picture
-drawScene game = return (background <> playerPicture)
+drawScene :: Assets -> Game -> IO Picture
+drawScene assets game = return (background <> playerPicture')
 	where
 	background =
 		rectanglePath
 			(fromIntegral sceneWidth)
 			(fromIntegral sceneHeight)
 		& (polygon >>> color white)
-	playerPicture =
-		rectangleWire 25 35
-		& (color violet
-			>>> uncurry translate playerDrawPosition)
+	playerPicture' =
+		assets ^. heroAssets ^. heroDirectedLens
+		& uncurry translate playerDrawPosition
 	playerDrawPosition =
 		game ^. player
 		& (\p ->
 			(p ^. characterPosition)
 			& (_2 +~ p ^. characterZ))
+	heroDirectedLens =
+		case game ^. player ^. characterOrientation of
+			DirectionLeft  -> heroFacingLeft
+			DirectionRight -> heroFacingRight
+			DirectionUp    -> heroFacingFront
+			DirectionDown  -> heroFacingBack
 
 
 handleInput :: Event -> Game -> IO Game
@@ -262,7 +287,7 @@ initialPlayer
 	{ _characterPosition    = (-200, 0)
 	, _characterZ           = 0
 	, _characterPower       = 30
-	, _characterSpeed       = 30
+	, _characterSpeed       = 75
 	, _characterWeapon      = Club
 	, _characterHealth      = 100
 	, _characterEnergy      = 100
@@ -283,13 +308,30 @@ initialGame
 	}
 
 
+loadPictureAssets :: IO Assets
+loadPictureAssets = do
+	heroPictureFacingFront <- loadBMP "assets/hero/front.png.bmp"
+	heroPictureFacingBack  <- loadBMP "assets/hero/back.png.bmp"
+	heroPictureFacingRight <- loadBMP "assets/hero/facing_right.png.bmp"
+	heroPictureFacingLeft  <- loadBMP "assets/hero/facing_left.png.bmp"
+	return Assets
+		{ _heroAssets = HeroAssets
+			{ _heroFacingFront = heroPictureFacingFront
+			, _heroFacingBack  = heroPictureFacingBack
+			, _heroFacingRight = heroPictureFacingRight
+			, _heroFacingLeft  = heroPictureFacingLeft
+			}
+		}
+
+
 main :: IO ()
 main = do
+	assets <- loadPictureAssets
 	playIO
 		(InWindow "Yasam Sim" (1, 1) (sceneWidth, sceneHeight))
 		black
 		30
 		initialGame
-		drawScene
+		(drawScene assets)
 		handleInput
 		stepGame
