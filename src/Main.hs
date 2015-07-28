@@ -147,11 +147,13 @@ drawBackground :: Game -> Picture
 drawBackground game = color white . polygon $ rectanglePath (fromIntegral sceneWidth) (fromIntegral sceneHeight)
 
 drawPlayer :: Game -> Picture
-drawPlayer game = translate x (y+z) . color violet $ rectangleWire 25 35
+drawPlayer game = uncurry translate playerDrawPosition . color violet $ rectangleWire 25 35
 	where
-	oldPlayer = game^.player
-	(x, y)    = oldPlayer^.characterPosition
-	z         = oldPlayer^.characterZ
+	playerDrawPosition =
+		game ^. player
+		& (\p ->
+			(p ^. characterPosition)
+			& (_2 +~ p ^. characterZ))
 
 
 handleInput :: Event -> Game -> IO Game
