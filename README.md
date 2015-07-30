@@ -1,5 +1,14 @@
 # YasamSim development notes
 
+## 2015-07-31
+
+TODO:
+
+Integrate acceleration instead of using impulse velocity
+Add dampening
+
+Thanks Welkin!
+
 ## 2015-07-30
 
 Our hero can now face in the direction it is walking. Hurray!
