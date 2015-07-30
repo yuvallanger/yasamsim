@@ -9,7 +9,9 @@ Add dampening
 
 Thanks Welkin!
 
-Also, there's a [screen capture](yasamsim_2015_07_31) of the current progress.
+Also, there's a [screen capture][yasamsim_2015_07_31] of the current progress:
+
+![YasamSim 2015-07-31][yasamsim_2015_07_31]
 
 The yasamnik sprite was chissled out of pure pixels by [moomoohk].
 
