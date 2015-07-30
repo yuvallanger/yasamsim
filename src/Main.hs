@@ -180,8 +180,8 @@ drawScene assets game = return (background <> playerPicture')
 		case game ^. player ^. characterOrientation of
 			DirectionLeft  -> heroFacingLeft
 			DirectionRight -> heroFacingRight
-			DirectionUp    -> heroFacingFront
-			DirectionDown  -> heroFacingBack
+			DirectionDown  -> heroFacingFront
+			DirectionUp    -> heroFacingBack
 
 
 handleInput :: Event -> Game -> IO Game
@@ -237,18 +237,20 @@ handleInput event game =
 	handleDirectionKey
 		direction
 		button
-		keyState = game & case keyState of
-			Down ->
-				over (player . characterDirection)
-					(insert direction . delete directionOpposite)
-				>>> over player1KeyboardState
-					(insert button)
-			Up ->
-				over (player . characterDirection)
-					(delete direction)
-				>>> over player1KeyboardState
-					(delete button)
+		keyState =
+			over (player . characterDirection) characterDirectionUpdate
+			. over player1KeyboardState player1KeyboardStateUpdate
+			. over (player . characterOrientation) characterOrientationUpdate $ game
 		where
+		characterDirectionUpdate = case keyState of
+			Down -> insert direction . delete directionOpposite
+			Up   -> delete direction
+		player1KeyboardStateUpdate = case keyState of
+			Down -> insert button
+			Up   -> delete button
+		characterOrientationUpdate = case keyState of
+			Down -> const direction
+			Up   -> id
 		directionOpposite
 			| direction == DirectionLeft  = DirectionRight
 			| direction == DirectionRight = DirectionLeft
