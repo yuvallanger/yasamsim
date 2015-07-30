@@ -9,8 +9,9 @@ Add dampening
 
 Thanks Welkin!
 
-Also, there's a [yasamsim_2015_07_31](screen capture) of the current progress.
-The yasamnik sprite was chissled out of pure pixels by [https://moomoohk.github.io/](moomoohk)
+Also, there's a [screen capture](yasamsim_2015_07_31) of the current progress.
+
+The yasamnik sprite was chissled out of pure pixels by [moomoohk].
 
 ## 2015-07-30
 
@@ -24,3 +25,4 @@ A few short term goals:
 * Figure out what's the deal with FRP and how to use it here.
 
 [yasamsim_2015_07_31]: </yasamsim-2015-07-31.gif>
+[moomoohk]: <https://moomoohk.github.io/>
