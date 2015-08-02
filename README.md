@@ -11,6 +11,17 @@ Mirrors:
 
 # YasamSim development notes
 
+## 2015-08-02
+
+Finally wrote the image loading function, hurray!
+
+It is using some really iffy Either a b management, though. I should really
+get that rewritten.
+
+TODO:
+
+* [ ] Find a better way to handle errors with Either.
+
 ## 2015-07-31
 
 TODO:
