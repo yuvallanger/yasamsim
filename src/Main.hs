@@ -23,6 +23,15 @@
 module Main where
 
 
+import Codec.BMP
+	( parseBMP
+	)
+import Codec.Picture
+	( readImage
+	)
+import Codec.Picture.Bitmap
+	( encodeDynamicBitmap
+	)
 import Control.Arrow
 	( (>>>)
 	)
@@ -39,22 +48,18 @@ import Data.Set
 	)
 import Data.Monoid
 	( (<>)
-	, mempty
 	)
 import Graphics.Gloss.Data.Bitmap
-	( loadBMP
+	( bitmapOfBMP
 	)
 import Graphics.Gloss.Data.Picture
-	( blank
-	, color
-	, rectangleWire
+	( color
 	, rectanglePath
 	, polygon
 	, translate
 	)
 import Graphics.Gloss.Data.Color
-	( violet
-	, white
+	( white
 	)
 import Graphics.Gloss.Data.Vector
 	( Vector
@@ -310,12 +315,31 @@ initialGame
 	}
 
 
+loadImageAsset
+	:: FilePath
+	-> IO Picture
+loadImageAsset filepath
+	= do
+	eitherDynamicImage <- readImage filepath
+	let dynamicImage = case eitherDynamicImage of
+		Left a  -> error a
+		Right b -> b
+	let bitmapImage = case encodeDynamicBitmap dynamicImage of
+		Left a  -> error a
+		Right b -> b
+	let bmp = case parseBMP bitmapImage of
+		Left _  -> error "Failed to convert to BMP"
+		Right b -> b
+	let pictureImage = bitmapOfBMP bmp
+	return pictureImage
+
+
 loadPictureAssets :: IO Assets
 loadPictureAssets = do
-	heroPictureFacingFront <- loadBMP "assets/hero/front.png.bmp"
-	heroPictureFacingBack  <- loadBMP "assets/hero/back.png.bmp"
-	heroPictureFacingRight <- loadBMP "assets/hero/facing_right.png.bmp"
-	heroPictureFacingLeft  <- loadBMP "assets/hero/facing_left.png.bmp"
+	heroPictureFacingFront <- loadImageAsset "assets/hero/front.png"
+	heroPictureFacingBack  <- loadImageAsset "assets/hero/back.png"
+	heroPictureFacingRight <- loadImageAsset "assets/hero/facing_right.png"
+	heroPictureFacingLeft  <- loadImageAsset "assets/hero/facing_left.png"
 	return Assets
 		{ _heroAssets = HeroAssets
 			{ _heroFacingFront = heroPictureFacingFront
