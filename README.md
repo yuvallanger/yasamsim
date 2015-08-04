@@ -11,6 +11,11 @@ Mirrors:
 
 # YasamSim development notes
 
+## 2015-08-04
+
+Reading about FRP in [Functional Reactive Animation].
+It is mostly things I do not comprehend. The notation is a bit weird.
+
 ## 2015-08-02
 
 Finally wrote the image loading function, hurray!
@@ -50,3 +55,4 @@ A few short term goals:
 
 [yasamsim_2015_07_31]: </yasamsim-2015-07-31.gif>
 [moomoohk]: <https://moomoohk.github.io/>
+[Functional Reactive Animation]: <http://conal.net/papers/icfp97/icfp97.pdf>
