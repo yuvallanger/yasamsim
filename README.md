@@ -11,6 +11,17 @@ Mirrors:
 
 # YasamSim development notes
 
+## 2015-08-09
+
+I've read and skimmed quite a few guides today. A [PPDP 2014 Yampa] talk
+slides, an [Almost a Netwire 5 Tutorial] and now [Getting Into Netwire].
+
+Confusion will be my epitaph, but it is getting better.
+
+[PPDP 2014 Yampa]: <http://www.cs.nott.ac.uk/~nhn/Talks/PPDP2014-tutorial.pdf>
+[Almost a Netwire 5 Tutorial]: <http://todayincode.tumblr.com/post/96914679355/almost-a-netwire-5-tutorial>
+[Getting Into Netwire]: <http://phaazon.blogspot.com/2015/03/getting-into-netwire.html>
+
 ## 2015-08-04
 
 Reading about FRP in [Functional Reactive Animation].
@@ -31,8 +42,8 @@ TODO:
 
 TODO:
 
-Integrate acceleration instead of using impulse velocity
-Add dampening
+* [ ] Integrate acceleration instead of using impulse velocity
+* [ ] Add dampening
 
 Thanks Welkin!
 
