@@ -80,6 +80,54 @@ import Graphics.Gloss.Interface.IO.Game
 	, Picture
 	, black
 	)
+import Control.Monad.Fix (MonadFix)
+
+import Graphics.Gloss
+	( Picture
+	, white
+	, Display(InWindow)
+	)
+
+import Reflex
+	( sample
+	, Reflex
+	, ffilter
+	, MonadHold
+	, toggle
+	, never
+	, current
+	, count
+	, foldDyn
+	, leftmost
+	, gate
+	, constant
+	, Behavior
+	, Event
+	, pushAlways
+	, switcher
+	, switch
+	, pull
+	)
+import Reflex.Gloss
+	( InputEvent
+	, playReflex
+	)
+
+import Buttons
+	( ButtonClick(Toggle, Click)
+	, filter0
+	, filter5
+	, filter10
+	, renderButtons
+	)
+
+import Control.Applicative
+	( (<*>)
+	, (<$>)
+	, (<$)
+	, pure
+	)
+
 
 
 sceneWidth, sceneHeight :: Int
@@ -189,7 +237,7 @@ drawScene assets game = return (background <> playerPicture')
 			DirectionUp    -> heroFacingBack
 
 
-handleInput :: Event -> Game -> IO Game
+handleInput :: InputEvent -> Game -> IO Game
 handleInput event game =
 	case event of
 		EventKey (Char 'w') keyState _ _ -> do
@@ -350,14 +398,44 @@ loadPictureAssets = do
 		}
 
 
+mainReflex
+	:: (Monad m, Reflex t)
+	=> Assets
+	-> Reflex.Event t Float
+	-> Reflex.Event t InputEvent
+	-> m (Behavior t Picture)
+mainReflex assets _t _ev = do
+	let background =
+		rectanglePath
+			(fromIntegral sceneWidth)
+			(fromIntegral sceneHeight)
+		& (polygon >>> color white)
+	let playerPicture' =
+		assets ^. heroAssets ^. heroFacingRight -- heroDirectedLens
+		& uncurry translate (0, 0) -- playerDrawPosition
+	-- let playerDrawPosition =
+	-- 	game ^. player
+	-- 	& (\p ->
+	-- 		(p ^. characterPosition)
+	-- 		& (_2 +~ p ^. characterZ))
+	-- let heroDirectedLens =
+	-- 	case game ^. player ^. characterOrientation of
+	-- 		DirectionLeft  -> heroFacingLeft
+	-- 		DirectionRight -> heroFacingRight
+	-- 		DirectionDown  -> heroFacingFront
+	-- 		DirectionUp    -> heroFacingBack
+	let picture = background <> playerPicture'
+	return $ constant picture
+
 main :: IO ()
 main = do
 	assets <- loadPictureAssets
-	playIO
+	playReflex
 		(InWindow "Yasam Sim" (1, 1) (sceneWidth, sceneHeight))
 		black
 		30
-		initialGame
-		(drawScene assets)
-		handleInput
-		stepGame
+		(mainReflex assets)
+		-- initialGame
+		-- (drawScene assets)
+		-- handleInput
+		-- stepGame
