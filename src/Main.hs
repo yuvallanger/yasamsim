@@ -174,7 +174,7 @@ drawScene assets game = return (background <> playerPicture')
 			(fromIntegral sceneHeight)
 		& (polygon >>> color white)
 	playerPicture' =
-		assets ^. heroAssets ^. heroDirectedLens
+		assets ^. heroAssets . heroDirectedLens
 		& uncurry translate playerDrawPosition
 	playerDrawPosition =
 		game ^. player
@@ -182,7 +182,7 @@ drawScene assets game = return (background <> playerPicture')
 			(p ^. characterPosition)
 			& (_2 +~ p ^. characterZ))
 	heroDirectedLens =
-		case game ^. player ^. characterOrientation of
+		case game ^. player . characterOrientation of
 			DirectionLeft  -> heroFacingLeft
 			DirectionRight -> heroFacingRight
 			DirectionDown  -> heroFacingFront
