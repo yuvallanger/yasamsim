@@ -23,63 +23,26 @@
 module Main where
 
 
-import Codec.BMP
-    ( parseBMP
-    )
-import Codec.Picture
-    ( readImage
-    )
-import Codec.Picture.Bitmap
-    ( encodeDynamicBitmap
-    )
-import Control.Arrow
-    ( (>>>)
-    )
-import Control.Lens
-import Debug.Trace
-    ( traceIO
-    )
-import Data.Set
-    ( Set
-    , empty
-    , insert
-    , delete
-    , member
-    )
-import Data.Monoid
-    ( (<>)
-    )
-import Graphics.Gloss.Data.Bitmap
-    ( bitmapOfBMP
-    )
-import Graphics.Gloss.Data.Picture
-    ( color
-    , rectanglePath
-    , polygon
-    , translate
-    )
-import Graphics.Gloss.Data.Color
-    ( white
-    )
-import Graphics.Gloss.Data.Vector
-    ( Vector
-    )
-import Graphics.Gloss.Interface.IO.Game
-    ( playIO
-    , Event
-        ( EventKey
-        )
-    , Key
-        ( Char
-        )
-    , KeyState
-        ( Down
-        , Up
-        )
-    , Display (InWindow)
-    , Picture
-    , black
-    )
+import           Codec.BMP                        (parseBMP)
+import           Codec.Picture                    (readImage)
+import           Codec.Picture.Bitmap             (encodeDynamicBitmap)
+import           Control.Arrow                    ((>>>))
+import           Control.Lens
+import           Control.Monad                    ((<=<), (>=>))
+import           Control.Monad.Except             (catchError)
+import           Data.Monoid                      ((<>))
+import           Data.Set                         (Set, delete, empty, insert,
+                                                   member)
+import           Debug.Trace                      (traceIO)
+import           Graphics.Gloss.Data.Bitmap       (bitmapOfBMP)
+import           Graphics.Gloss.Data.Color        (white)
+import           Graphics.Gloss.Data.Picture      (color, polygon,
+                                                   rectanglePath, translate)
+import           Graphics.Gloss.Data.Vector       (Vector)
+import           Graphics.Gloss.Interface.IO.Game (Display (InWindow),
+                                                   Event (EventKey), Key (Char),
+                                                   KeyState (Down, Up), Picture,
+                                                   black, playIO)
 
 
 sceneWidth, sceneHeight :: Int
@@ -127,11 +90,11 @@ data Item
 
 data Game
     = Game
-    { _player                :: Character
-    , _civilians             :: [Character]
-    , _items                 :: [Item]
-    , _player1KeyboardState  :: Set KeyboardButton
-    , _player2KeyboardState  :: Set KeyboardButton
+    { _player               :: Character
+    , _civilians            :: [Character]
+    , _items                :: [Item]
+    , _player1KeyboardState :: Set KeyboardButton
+    , _player2KeyboardState :: Set KeyboardButton
     }
 
 
@@ -152,8 +115,8 @@ data Assets
 
 data HeroAssets
     = HeroAssets
-    { _heroFacingFront       :: Picture
-    , _heroFacingBack        :: Picture
+    { _heroFacingFront :: Picture
+    , _heroFacingBack  :: Picture
     , _heroFacingLeft  :: Picture
     , _heroFacingRight :: Picture
     }
@@ -194,34 +157,22 @@ handleInput event game =
     case event of
         EventKey (Char 'w') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey
-                DirectionUp
-                ButtonUp
-                keyState
+            let newGame = handleDirectionKey DirectionUp ButtonUp keyState
             traceNewStateIO newGame
             return newGame
         EventKey (Char 's') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey
-                DirectionDown
-                ButtonDown
-                keyState
+            let newGame = handleDirectionKey DirectionDown ButtonDown keyState
             traceNewStateIO newGame
             return newGame
         EventKey (Char 'a') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey
-                DirectionLeft
-                ButtonLeft
-                keyState
+            let newGame = handleDirectionKey DirectionLeft ButtonLeft keyState
             traceNewStateIO newGame
             return newGame
         EventKey (Char 'd') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey
-                DirectionRight
-                ButtonRight
-                keyState
+            let newGame = handleDirectionKey DirectionRight ButtonRight keyState
             traceNewStateIO newGame
             return newGame
         _ -> return game
@@ -321,15 +272,9 @@ loadImageAsset
 loadImageAsset filepath
     = do
     eitherDynamicImage <- readImage filepath
-    let dynamicImage = case eitherDynamicImage of
-        Left a  -> error a
-        Right b -> b
-    let bitmapImage = case encodeDynamicBitmap dynamicImage of
-        Left a  -> error a
-        Right b -> b
-    let bmp = case parseBMP bitmapImage of
-        Left _  -> error "Failed to convert to BMP"
-        Right b -> b
+    let dynamicImage = either error id eitherDynamicImage
+    let bitmapImage = either error id $ encodeDynamicBitmap dynamicImage
+    let bmp = either (const . error $ "parseBMP fails on " ++ filepath) id $ parseBMP bitmapImage
     let pictureImage = bitmapOfBMP bmp
     return pictureImage
 
