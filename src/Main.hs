@@ -30,6 +30,8 @@ import           Control.Arrow                    ((>>>))
 import           Control.Lens
 import           Control.Monad                    ((<=<), (>=>))
 import           Control.Monad.Except             (catchError)
+import           Control.Monad.State.Strict       (execState)
+import qualified Data.Map                         as Map
 import           Data.Monoid                      ((<>))
 import           Data.Set                         (Set, delete, empty, insert,
                                                    member)
@@ -95,6 +97,7 @@ data Game
     , _items                :: [Item]
     , _player1KeyboardState :: Set KeyboardButton
     , _player2KeyboardState :: Set KeyboardButton
+    , _gameTime             :: Float
     }
 
 
@@ -107,28 +110,14 @@ data KeyboardButton
     deriving (Eq, Ord, Show)
 
 
-data Assets
-    = Assets
-    { _heroAssets :: HeroAssets
-    }
-
-
-data HeroAssets
-    = HeroAssets
-    { _heroFacingFront :: Picture
-    , _heroFacingBack  :: Picture
-    , _heroFacingLeft  :: Picture
-    , _heroFacingRight :: Picture
-    }
-
-
 makeLenses ''Game
 makeLenses ''Character
-makeLenses ''Assets
-makeLenses ''HeroAssets
 
 
-drawScene :: Assets -> Game -> IO Picture
+drawScene ::
+    Map.Map String Picture
+    -> Game
+    -> IO Picture
 drawScene assets game = return (background <> playerPicture')
     where
     background =
@@ -137,7 +126,7 @@ drawScene assets game = return (background <> playerPicture')
             (fromIntegral sceneHeight)
         & (polygon >>> color white)
     playerPicture' =
-        assets ^. heroAssets . heroDirectedLens
+        (assets Map.! heroDirectedLens)
         & uncurry translate playerDrawPosition
     playerDrawPosition =
         game ^. player
@@ -146,13 +135,23 @@ drawScene assets game = return (background <> playerPicture')
             & (_2 +~ p ^. characterZ))
     heroDirectedLens =
         case game ^. player . characterOrientation of
-            DirectionLeft  -> heroFacingLeft
-            DirectionRight -> heroFacingRight
-            DirectionDown  -> heroFacingFront
-            DirectionUp    -> heroFacingBack
+            DirectionLeft  -> cycleSprite "heroFacingLeft"  4 4
+            DirectionRight -> cycleSprite "heroFacingRight" 4 4
+            DirectionDown  -> cycleSprite "heroFacingFront" 4 4
+            DirectionUp    -> cycleSprite "heroFacingBack"  4 4
+    cycleSprite ::
+        String    -- Name of sprite cycle
+        -> Int    -- Number of sprites in cycle
+        -> Float  -- Number of times per second a the sprites will change
+        -> String
+    cycleSprite cs n fps =
+        cs ++ show (floor ((game^.gameTime) * fps) `mod` n)
 
 
-handleInput :: Event -> Game -> IO Game
+handleInput ::
+    Event
+    -> Game
+    -> IO Game
 handleInput event game =
     case event of
         EventKey (Char 'w') keyState _ _ -> do
@@ -181,7 +180,8 @@ handleInput event game =
         traceIO $ "EventKey:\n" ++ "\n" ++
             "\t" ++ show event ++ "\n" ++
             "\t" ++ show (game^.player.characterDirection) ++ "\n" ++
-            "\t" ++ show (game^.player1KeyboardState) ++ "\n"
+            "\t" ++ show (game^.player1KeyboardState) ++ "\n" ++
+            "\t" ++ show (game^.gameTime) ++ "\n"
     traceNewStateIO newGame =
         traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
             "\t" ++ show (newGame^.player1KeyboardState)
@@ -214,12 +214,17 @@ handleInput event game =
             | otherwise                   = DirectionUp
 
 
-stepGame :: Float -> Game -> IO Game
-stepGame time game =
-    return $ player %~ moveCharacter time $ game
+stepGame ::
+    Float
+    -> Game
+    -> IO Game
+stepGame time =
+    return . execState (do
+        player %= moveCharacter time
+        gameTime += time)
 
-moveCharacter
-    :: Float
+moveCharacter ::
+    Float
     -> Character
     -> Character
 moveCharacter time character =
@@ -263,6 +268,7 @@ initialGame
     , _items     = []
     , _player1KeyboardState = empty
     , _player2KeyboardState = empty
+    , _gameTime = 0
     }
 
 
@@ -279,20 +285,10 @@ loadImageAsset filepath
     return pictureImage
 
 
-loadPictureAssets :: IO Assets
+loadPictureAssets :: IO (Map.Map String Picture)
 loadPictureAssets = do
-    heroPictureFacingFront <- loadImageAsset "assets/hero/front.png"
-    heroPictureFacingBack  <- loadImageAsset "assets/hero/back.png"
-    heroPictureFacingRight <- loadImageAsset "assets/hero/facing_right.png"
-    heroPictureFacingLeft  <- loadImageAsset "assets/hero/facing_left.png"
-    return Assets
-        { _heroAssets = HeroAssets
-            { _heroFacingFront = heroPictureFacingFront
-            , _heroFacingBack  = heroPictureFacingBack
-            , _heroFacingRight = heroPictureFacingRight
-            , _heroFacingLeft  = heroPictureFacingLeft
-            }
-        }
+    let loadFiles = ["heroFacingFront", "heroFacingBack", "heroFacingRight", "heroFacingLeft"]
+    Map.unions <$> sequence [Map.singleton (name ++ show i) <$> loadImageAsset ("assets/" ++ name ++ show i ++ ".png") | name <- loadFiles, i <- [0..4]]
 
 
 main :: IO ()
@@ -306,3 +302,7 @@ main = do
         (drawScene assets)
         handleInput
         stepGame
+    where
+    display = InWindow "Yasam Sim" (1, 1) (sceneWidth, sceneHeight)
+    backColor = black
+    fps = 30
