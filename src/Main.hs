@@ -23,20 +23,18 @@
 module Main where
 
 
-import           Codec.BMP                        (parseBMP)
-import           Codec.Picture                    (readImage)
-import           Codec.Picture.Bitmap             (encodeDynamicBitmap)
+import           Control.Applicative              (liftA2, (<$>))
 import           Control.Arrow                    ((>>>))
 import           Control.Lens
-import           Control.Monad                    ((<=<), (>=>))
-import           Control.Monad.Except             (catchError)
+import           Control.Monad                    (forM, (<=<), (>=>))
 import           Control.Monad.State.Strict       (execState)
+import           Data.Char                        (toLower)
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromJust)
 import           Data.Monoid                      ((<>))
 import           Data.Set                         (Set, delete, empty, insert,
                                                    member)
 import           Debug.Trace                      (traceIO)
-import           Graphics.Gloss.Data.Bitmap       (bitmapOfBMP)
 import           Graphics.Gloss.Data.Color        (white)
 import           Graphics.Gloss.Data.Picture      (color, polygon,
                                                    rectanglePath, translate)
@@ -45,11 +43,26 @@ import           Graphics.Gloss.Interface.IO.Game (Display (InWindow),
                                                    Event (EventKey), Key (Char),
                                                    KeyState (Down, Up), Picture,
                                                    black, playIO)
+import           Graphics.Gloss.Juicy             (loadJuicyPNG)
 
 
 sceneWidth, sceneHeight :: Int
 sceneWidth  = 640
 sceneHeight = 480
+
+
+data ImageAsset
+    = HeroFacingLeft
+    | HeroFacingRight
+    | HeroFacingBack
+    | HeroFacingFront
+    deriving (Eq, Ord, Show)
+
+
+imageAssetName ::
+    ImageAsset
+    -> String
+imageAssetName = (toLower <$>) . show
 
 
 data Direction
@@ -135,18 +148,19 @@ drawScene assets game = return (background <> playerPicture')
             & (_2 +~ p ^. characterZ))
     heroDirectedLens =
         case game ^. player . characterOrientation of
-            DirectionLeft  -> cycleSprite "heroFacingLeft"  4 4
-            DirectionRight -> cycleSprite "heroFacingRight" 4 4
-            DirectionDown  -> cycleSprite "heroFacingFront" 4 4
-            DirectionUp    -> cycleSprite "heroFacingBack"  4 4
+            DirectionLeft  -> cycleSprite (game^.player.characterDirection) HeroFacingLeft  4 4
+            DirectionRight -> cycleSprite (game^.player.characterDirection) HeroFacingRight 4 4
+            DirectionDown  -> cycleSprite (game^.player.characterDirection) HeroFacingBack  4 4
+            DirectionUp    -> cycleSprite (game^.player.characterDirection) HeroFacingFront 4 4
     cycleSprite ::
-        String    -- Name of sprite cycle
-        -> Int    -- Number of sprites in cycle
-        -> Float  -- Number of times per second a the sprites will change
+        Set Direction -- Directions to which the sprite moves
+        -> ImageAsset -- Name of sprite cycle
+        -> Int        -- Number of sprites in cycle
+        -> Float      -- Number of times per second a the sprites will change
         -> String
-    cycleSprite cs n fps
-        | empty == game^.player.characterDirection = cs ++ show 0
-        | otherwise = cs ++ show (floor ((game^.gameTime) * fps) `mod` n)
+    cycleSprite directions asset n fps
+        | empty == directions = show (asset 0)
+        | otherwise           = show (asset (floor ((game^.gameTime) * fps) `mod` n))
 
 
 handleInput ::
@@ -273,23 +287,13 @@ initialGame
     }
 
 
-loadImageAsset
-    :: FilePath
-    -> IO Picture
-loadImageAsset filepath
-    = do
-    eitherDynamicImage <- readImage filepath
-    let dynamicImage = either error id eitherDynamicImage
-    let bitmapImage = either error id $ encodeDynamicBitmap dynamicImage
-    let bmp = either (const . error $ "parseBMP fails on " ++ filepath) id $ parseBMP bitmapImage
-    let pictureImage = bitmapOfBMP bmp
-    return pictureImage
-
-
 loadPictureAssets :: IO (Map.Map String Picture)
-loadPictureAssets = do
-    let loadFiles = ["heroFacingFront", "heroFacingBack", "heroFacingRight", "heroFacingLeft"]
-    Map.unions <$> sequence [Map.singleton (name ++ show i) <$> loadImageAsset ("assets/" ++ name ++ show i ++ ".png") | name <- loadFiles, i <- [0..4]]
+loadPictureAssets =
+    (Map.unions <$>) . forM (liftA2 (,) cycleNames [0..4]) $ \(name, i) ->
+        Map.singleton (name ++ show i) . fromJust
+            <$> loadJuicyPNG ("assets/" ++ name ++ show i ++ ".png")
+    where
+    cycleNames = ["heroFacingFront", "heroFacingBack", "heroFacingRight", "heroFacingLeft"]
 
 
 main :: IO ()
