@@ -1,0 +1,3 @@
+[submodule "thirdparty/gloss-juicy"]
+	path = thirdparty/gloss-juicy
+	url = https://github.com/alpmestan/gloss-juicy
