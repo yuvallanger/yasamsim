@@ -159,8 +159,8 @@ drawScene assets game = return (background <> playerPicture')
         -> Float      -- Number of times per second a the sprites will change
         -> String
     cycleSprite directions asset n fps
-        | empty == directions = show (asset 0)
-        | otherwise           = show (asset (floor ((game^.gameTime) * fps) `mod` n))
+        | empty == directions = imageAssetName asset ++ show 0
+        | otherwise           = imageAssetName asset ++ show (floor ((game^.gameTime) * fps) `mod` n)
 
 
 handleInput ::
