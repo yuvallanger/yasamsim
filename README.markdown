@@ -2,10 +2,11 @@
 
 Main online repository:
 
-<https://gitlab.com/yuvallanger/yasamsim/>
+<https://gitgud.io/yuvallanger/yasamsim/>
 
 Mirrors:
 
+<https://gitlab.com/yuvallanger/yasamsim/>
 <https://bitbucket.org/yuvallanger/yasamsim/>
 <https://github.com/yuvallanger/yasamsim/>
 
