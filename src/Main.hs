@@ -29,20 +29,34 @@ import           Control.Lens
 import           Control.Monad                    (forM, (<=<), (>=>))
 import           Control.Monad.State.Strict       (execState)
 import           Data.Char                        (toLower)
-import qualified Data.Map                         as Map
+import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust)
 import           Data.Monoid                      ((<>))
-import           Data.Set                         (Set, delete, empty, insert,
-                                                   member)
+import           Data.Set
+    ( Set
+    , delete
+    , empty
+    , insert
+    , member
+    )
 import           Debug.Trace                      (traceIO)
 import           Graphics.Gloss.Data.Color        (white)
-import           Graphics.Gloss.Data.Picture      (color, polygon,
-                                                   rectanglePath, translate)
+import           Graphics.Gloss.Data.Picture
+    ( color
+    , polygon
+    , rectanglePath
+    , translate
+    )
 import           Graphics.Gloss.Data.Vector       (Vector)
-import           Graphics.Gloss.Interface.IO.Game (Display (InWindow),
-                                                   Event (EventKey), Key (Char),
-                                                   KeyState (Down, Up), Picture,
-                                                   black, playIO)
+import           Graphics.Gloss.Interface.IO.Game
+    ( Display (InWindow)
+    , Event (EventKey)
+    , Key (Char)
+    , KeyState (Down, Up)
+    , Picture
+    , black
+    , playIO
+    )
 import           Graphics.Gloss.Juicy             (loadJuicyPNG)
 
 
@@ -50,20 +64,17 @@ sceneWidth, sceneHeight :: Int
 sceneWidth  = 640
 sceneHeight = 480
 
-type FrameIndex = Int
-
-type SpriteId = (Entity, Direction, FrameIndex)
-
 data Entity
     = Hero
     deriving (Eq, Ord, Show)
-
-type ImageAssets = Map.Map SpriteId Picture
 
 data Direction = North
          | West        | East
                | South
     deriving (Eq, Ord, Show)
+
+type ImageAssets
+    = Map.Map Entity (Map.Map Direction [Picture])
 
 data Character
     = Character
@@ -130,14 +141,14 @@ drawScene imageAssets game = return (background <> playerPicture')
             (fromIntegral sceneHeight)
         & (polygon >>> color white)
     playerPicture' =
-        heroDirectedLens
+        heroSprite
         & uncurry translate playerDrawPosition
     playerDrawPosition =
         game ^. player
         & (\p ->
             (p ^. characterPosition)
             & (_2 +~ p ^. characterZ))
-    heroDirectedLens =
+    heroSprite =
         case game ^. player . characterOrientation of
             North -> cycleSprite (game^.player.characterDirection) Hero North 4 4
             South -> cycleSprite (game^.player.characterDirection) Hero South 4 4
@@ -146,13 +157,13 @@ drawScene imageAssets game = return (background <> playerPicture')
     cycleSprite ::
         Set Direction -- Directions to which the sprite moves
         -> Entity     -- Name of sprite cycle
-	-> Direction  -- Direction sprite is facing
+	      -> Direction  -- Direction sprite is facing
         -> Int        -- Number of sprites in cycle
         -> Float      -- Number of times per second a the sprites will change
         -> Picture
     cycleSprite directions entity direction numberOfFrames fps
-        | empty == directions = imageAssets Map.! (entity, direction, 0)
-        | otherwise           = imageAssets Map.! (entity, direction, (floor ((game^.gameTime) * fps) `mod` numberOfFrames))
+        | empty == directions = ((imageAssets Map.! entity) Map.! direction) !! 0
+        | otherwise           = ((imageAssets Map.! entity) Map.! direction) !! (floor ((game^.gameTime) * fps) `mod` numberOfFrames)
 
 
 handleInput ::
@@ -192,8 +203,8 @@ handleInput event game =
     traceNewStateIO newGame =
         traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
             "\t" ++ show (newGame^.player1KeyboardState)
-    handleDirectionKey
-        :: Direction      -- ^ The direction associated with the button.
+    handleDirectionKey ::
+        Direction         -- ^ The direction associated with the button.
         -> KeyboardButton -- ^ The button whose state had changed.
         -> KeyState       -- ^ Whether the button went Up or Down.
         -> Game
@@ -284,18 +295,22 @@ initialGame
 
 
 loadPictureAssets :: IO ImageAssets
-loadPictureAssets =
-    (Map.unions <$>) . forM (liftA3 (,,) entities directions [0..4]) $ \(entity, direction, frameIndex) ->
-        Map.singleton (entity, direction, frameIndex) . fromJust
-            <$> loadJuicyPNG ("assets/" ++ show entity ++ show direction ++ show frameIndex ++ ".png")
-    where
-    entities = [Hero]
-    directions =
-        [ North
-	, South
-	, East
-	, West
-	]
+loadPictureAssets = do
+  (Map.unions <$>) $ forM entities $ \entity -> do
+    ((Map.singleton entity . Map.unions) <$>) $ forM directions $ \direction -> do
+      ((Map.singleton direction) <$>) $ forM [0..4] $ \frameIndex -> do
+        loadAsset entity direction frameIndex
+  where
+  entities = [Hero]
+  directions = [North, South, East, West]
+
+loadAsset ::
+  Entity
+  -> Direction
+  -> Int
+  -> IO Picture
+loadAsset entity direction frameIndex =
+  fromJust <$> loadJuicyPNG ("assets/" ++ show entity ++ show direction ++ show frameIndex ++ ".png")
 
 
 main :: IO ()
