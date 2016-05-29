@@ -23,7 +23,7 @@
 module Main where
 
 
-import           Control.Applicative              (liftA2, (<$>))
+import           Control.Applicative              (liftA3, (<$>))
 import           Control.Arrow                    ((>>>))
 import           Control.Lens
 import           Control.Monad                    (forM, (<=<), (>=>))
@@ -50,26 +50,19 @@ sceneWidth, sceneHeight :: Int
 sceneWidth  = 640
 sceneHeight = 480
 
+type FrameIndex = Int
 
-data ImageAsset
-    = HeroFacingLeft
-    | HeroFacingRight
-    | HeroFacingBack
-    | HeroFacingFront
+type SpriteId = (Entity, Direction, FrameIndex)
+
+data Entity
+    = Hero
     deriving (Eq, Ord, Show)
 
+type ImageAssets = Map.Map SpriteId Picture
 
-imageAssetName ::
-    ImageAsset
-    -> String
-imageAssetName = (toLower <$>) . show
-
-
-data Direction
-    = DirectionLeft
-    | DirectionRight
-    | DirectionUp
-    | DirectionDown
+data Direction = North
+         | West        | East
+               | South
     deriving (Eq, Ord, Show)
 
 data Character
@@ -114,11 +107,9 @@ data Game
     }
 
 
-data KeyboardButton
-    = ButtonUp
-    | ButtonDown
-    | ButtonLeft
-    | ButtonRight
+data KeyboardButton = ButtonNorth
+    | ButtonWest                  | ButtonEast
+                    | ButtonSouth
     | ButtonPunch
     deriving (Eq, Ord, Show)
 
@@ -128,10 +119,10 @@ makeLenses ''Character
 
 
 drawScene ::
-    Map.Map String Picture
+    ImageAssets
     -> Game
     -> IO Picture
-drawScene assets game = return (background <> playerPicture')
+drawScene imageAssets game = return (background <> playerPicture')
     where
     background =
         rectanglePath
@@ -139,7 +130,7 @@ drawScene assets game = return (background <> playerPicture')
             (fromIntegral sceneHeight)
         & (polygon >>> color white)
     playerPicture' =
-        (assets Map.! heroDirectedLens)
+        heroDirectedLens
         & uncurry translate playerDrawPosition
     playerDrawPosition =
         game ^. player
@@ -148,19 +139,20 @@ drawScene assets game = return (background <> playerPicture')
             & (_2 +~ p ^. characterZ))
     heroDirectedLens =
         case game ^. player . characterOrientation of
-            DirectionLeft  -> cycleSprite (game^.player.characterDirection) HeroFacingLeft  4 4
-            DirectionRight -> cycleSprite (game^.player.characterDirection) HeroFacingRight 4 4
-            DirectionDown  -> cycleSprite (game^.player.characterDirection) HeroFacingBack  4 4
-            DirectionUp    -> cycleSprite (game^.player.characterDirection) HeroFacingFront 4 4
+            North -> cycleSprite (game^.player.characterDirection) Hero North 4 4
+            South -> cycleSprite (game^.player.characterDirection) Hero South 4 4
+            West  -> cycleSprite (game^.player.characterDirection) Hero West  4 4
+            East  -> cycleSprite (game^.player.characterDirection) Hero East  4 4
     cycleSprite ::
         Set Direction -- Directions to which the sprite moves
-        -> ImageAsset -- Name of sprite cycle
+        -> Entity     -- Name of sprite cycle
+	-> Direction  -- Direction sprite is facing
         -> Int        -- Number of sprites in cycle
         -> Float      -- Number of times per second a the sprites will change
-        -> String
-    cycleSprite directions asset n fps
-        | empty == directions = imageAssetName asset ++ show 0
-        | otherwise           = imageAssetName asset ++ show (floor ((game^.gameTime) * fps) `mod` n)
+        -> Picture
+    cycleSprite directions entity direction numberOfFrames fps
+        | empty == directions = imageAssets Map.! (entity, direction, 0)
+        | otherwise           = imageAssets Map.! (entity, direction, (floor ((game^.gameTime) * fps) `mod` numberOfFrames))
 
 
 handleInput ::
@@ -171,22 +163,22 @@ handleInput event game =
     case event of
         EventKey (Char 'w') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey DirectionUp ButtonUp keyState
+            let newGame = handleDirectionKey North ButtonNorth keyState
             traceNewStateIO newGame
             return newGame
         EventKey (Char 's') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey DirectionDown ButtonDown keyState
+            let newGame = handleDirectionKey South ButtonSouth keyState
             traceNewStateIO newGame
             return newGame
         EventKey (Char 'a') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey DirectionLeft ButtonLeft keyState
+            let newGame = handleDirectionKey West ButtonWest keyState
             traceNewStateIO newGame
             return newGame
         EventKey (Char 'd') keyState _ _ -> do
             traceOldStateIO
-            let newGame = handleDirectionKey DirectionRight ButtonRight keyState
+            let newGame = handleDirectionKey East ButtonEast keyState
             traceNewStateIO newGame
             return newGame
         _ -> return game
@@ -214,19 +206,23 @@ handleInput event game =
             . over (player . characterOrientation) characterOrientationUpdate $ game
         where
         characterDirectionUpdate = case keyState of
-            Down -> insert direction . delete directionOpposite
+            Down -> insert direction . delete oppositeDirection
             Up   -> delete direction
+
         player1KeyboardStateUpdate = case keyState of
             Down -> insert button
             Up   -> delete button
+
         characterOrientationUpdate = case keyState of
             Down -> const direction
             Up   -> id
-        directionOpposite
-            | direction == DirectionLeft  = DirectionRight
-            | direction == DirectionRight = DirectionLeft
-            | direction == DirectionUp    = DirectionDown
-            | otherwise                   = DirectionUp
+
+	oppositeDirection = turnAroundDirection direction
+
+        turnAroundDirection North = South
+        turnAroundDirection West  = East
+        turnAroundDirection East  = West
+        turnAroundDirection South = North
 
 
 stepGame ::
@@ -250,12 +246,12 @@ moveCharacter time character =
     where
     oldCharacterDirection = character ^. characterDirection :: Set Direction
     xDirection
-        | member DirectionLeft  oldCharacterDirection = -1
-        | member DirectionRight oldCharacterDirection =  1
+        | member West  oldCharacterDirection = -1
+        | member East oldCharacterDirection =  1
         | otherwise = 0
     yDirection
-        | member DirectionUp   oldCharacterDirection =  1
-        | member DirectionDown oldCharacterDirection = -1
+        | member North oldCharacterDirection =  1
+        | member South oldCharacterDirection = -1
         | otherwise = 0
 
 
@@ -270,7 +266,7 @@ initialPlayer
     , _characterHealth      = 100
     , _characterEnergy      = 100
     , _characterState       = Stand
-    , _characterOrientation = DirectionRight
+    , _characterOrientation = East
     , _characterDirection   = empty
     }
 
@@ -287,13 +283,19 @@ initialGame
     }
 
 
-loadPictureAssets :: IO (Map.Map String Picture)
+loadPictureAssets :: IO ImageAssets
 loadPictureAssets =
-    (Map.unions <$>) . forM (liftA2 (,) cycleNames [0..4]) $ \(name, i) ->
-        Map.singleton (name ++ show i) . fromJust
-            <$> loadJuicyPNG ("assets/" ++ name ++ show i ++ ".png")
+    (Map.unions <$>) . forM (liftA3 (,,) entities directions [0..4]) $ \(entity, direction, frameIndex) ->
+        Map.singleton (entity, direction, frameIndex) . fromJust
+            <$> loadJuicyPNG ("assets/" ++ show entity ++ show direction ++ show frameIndex ++ ".png")
     where
-    cycleNames = ["heroFacingFront", "heroFacingBack", "heroFacingRight", "heroFacingLeft"]
+    entities = [Hero]
+    directions =
+        [ North
+	, South
+	, East
+	, West
+	]
 
 
 main :: IO ()
