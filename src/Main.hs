@@ -73,8 +73,8 @@ data Direction = North
                | South
     deriving (Eq, Ord, Show)
 
-type ImageAssets
-    = Map.Map Entity (Map.Map Direction [Picture])
+type PictureAssets
+    = Map.Map (Entity, Direction, Int) Picture
 
 data Character
     = Character
@@ -130,10 +130,10 @@ makeLenses ''Character
 
 
 drawScene ::
-    ImageAssets
+    PictureAssets
     -> Game
     -> IO Picture
-drawScene imageAssets game = return (background <> playerPicture')
+drawScene pictureAssets game = return (background <> playerPicture')
     where
     background =
         rectanglePath
@@ -162,8 +162,8 @@ drawScene imageAssets game = return (background <> playerPicture')
         -> Float      -- Number of times per second a the sprites will change
         -> Picture
     cycleSprite directions entity direction numberOfFrames fps
-        | empty == directions = ((imageAssets Map.! entity) Map.! direction) !! 0
-        | otherwise           = ((imageAssets Map.! entity) Map.! direction) !! (floor ((game^.gameTime) * fps) `mod` numberOfFrames)
+        | empty == directions = pictureAssets Map.! (entity, direction, 0)
+        | otherwise           = pictureAssets Map.! (entity, direction, floor ((game^.gameTime) * fps) `mod` numberOfFrames)
 
 
 handleInput ::
@@ -294,22 +294,23 @@ initialGame
     }
 
 
-loadPictureAssets :: IO ImageAssets
-loadPictureAssets = do
-  (Map.unions <$>) $ forM entities $ \entity -> do
-    ((Map.singleton entity . Map.unions) <$>) $ forM directions $ \direction -> do
-      ((Map.singleton direction) <$>) $ forM [0..4] $ \frameIndex -> do
-        loadAsset entity direction frameIndex
+loadPictureAssets :: IO PictureAssets
+loadPictureAssets =
+  (Map.fromList <$>) <$> forM cartesianProduct $ \(entity, direction, frameIndex) -> do
+    picture <- loadPictureAsset entity direction frameIndex
+    return ((entity, direction, frameIndex), picture)
   where
+  cartesianProduct = liftA3 ((,,)) entities directions [0..4]
   entities = [Hero]
   directions = [North, South, East, West]
 
-loadAsset ::
+
+loadPictureAsset ::
   Entity
   -> Direction
   -> Int
   -> IO Picture
-loadAsset entity direction frameIndex =
+loadPictureAsset entity direction frameIndex =
   fromJust <$> loadJuicyPNG ("assets/" ++ show entity ++ show direction ++ show frameIndex ++ ".png")
 
 
