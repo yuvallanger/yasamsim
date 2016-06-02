@@ -30,7 +30,7 @@ import           Control.Monad                    (forM, (<=<), (>=>))
 import           Control.Monad.State.Strict       (execState)
 import           Data.Char                        (toLower)
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromJust)
+import           Data.Maybe                       (catMaybes, fromJust)
 import           Data.Monoid                      ((<>))
 import           Data.Set
     ( Set
@@ -66,6 +66,10 @@ sceneHeight = 480
 
 data Entity
     = Hero
+    | Crate [Entity]
+    | Fist
+    | Club
+    | Medipack
     deriving (Eq, Ord, Show)
 
 data Direction = North
@@ -82,7 +86,7 @@ data Character
     , _characterZ           :: Float
     , _characterPower       :: Int
     , _characterSpeed       :: Float
-    , _characterWeapon      :: Weapon
+    , _characterWeapon      :: Entity
     , _characterHealth      :: Int
     , _characterEnergy      :: Int
     , _characterState       :: CharacterActionState
@@ -97,14 +101,7 @@ data CharacterActionState
     | Stand
 
 
-data Weapon
-    = Fist
-    | Club
-
-
-data Item
-    = Crate
-    | Medipack
+type Item = (Vector, Entity)
 
 
 data Game
@@ -133,13 +130,16 @@ drawScene ::
     PictureAssets
     -> Game
     -> IO Picture
-drawScene pictureAssets game = return (background <> playerPicture')
+drawScene pictureAssets game = return (background <> playerPicture' <> itemsPicture')
     where
     background =
         rectanglePath
             (fromIntegral sceneWidth)
             (fromIntegral sceneHeight)
         & (polygon >>> color white)
+    itemsPicture' = mconcat [
+      (pictureAssets Map.! (entity, North, 0)) & uncurry translate xy
+      | (xy, entity) <- game^.items]
     playerPicture' =
         heroSprite
         & uncurry translate playerDrawPosition
@@ -155,11 +155,11 @@ drawScene pictureAssets game = return (background <> playerPicture')
             West  -> cycleSprite (game^.player.characterDirection) Hero West  4 4
             East  -> cycleSprite (game^.player.characterDirection) Hero East  4 4
     cycleSprite ::
-        Set Direction -- Directions to which the sprite moves
-        -> Entity     -- Name of sprite cycle
-	      -> Direction  -- Direction sprite is facing
-        -> Int        -- Number of sprites in cycle
-        -> Float      -- Number of times per second a the sprites will change
+        Set Direction -- ^ Directions to which the sprite moves
+        -> Entity     -- ^ Name of sprite cycle
+        -> Direction  -- ^ Direction sprite is facing
+        -> Int        -- ^ Number of sprites in cycle
+        -> Float      -- ^ Number of times per second a the sprites will change
         -> Picture
     cycleSprite directions entity direction numberOfFrames fps
         | empty == directions = pictureAssets Map.! (entity, direction, 0)
@@ -170,70 +170,79 @@ handleInput ::
     Event
     -> Game
     -> IO Game
-handleInput event game =
-    case event of
-        EventKey (Char 'w') keyState _ _ -> do
-            traceOldStateIO
-            let newGame = handleDirectionKey North ButtonNorth keyState
-            traceNewStateIO newGame
-            return newGame
-        EventKey (Char 's') keyState _ _ -> do
-            traceOldStateIO
-            let newGame = handleDirectionKey South ButtonSouth keyState
-            traceNewStateIO newGame
-            return newGame
-        EventKey (Char 'a') keyState _ _ -> do
-            traceOldStateIO
-            let newGame = handleDirectionKey West ButtonWest keyState
-            traceNewStateIO newGame
-            return newGame
-        EventKey (Char 'd') keyState _ _ -> do
-            traceOldStateIO
-            let newGame = handleDirectionKey East ButtonEast keyState
-            traceNewStateIO newGame
-            return newGame
-        _ -> return game
-    where
-    traceOldStateIO =
-        traceIO $ "EventKey:\n" ++ "\n" ++
-            "\t" ++ show event ++ "\n" ++
-            "\t" ++ show (game^.player.characterDirection) ++ "\n" ++
-            "\t" ++ show (game^.player1KeyboardState) ++ "\n" ++
-            "\t" ++ show (game^.gameTime) ++ "\n"
-    traceNewStateIO newGame =
-        traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
-            "\t" ++ show (newGame^.player1KeyboardState)
-    handleDirectionKey ::
-        Direction         -- ^ The direction associated with the button.
-        -> KeyboardButton -- ^ The button whose state had changed.
-        -> KeyState       -- ^ Whether the button went Up or Down.
-        -> Game
-    handleDirectionKey
-        direction
-        button
-        keyState =
-            over (player . characterDirection) characterDirectionUpdate
-            . over player1KeyboardState player1KeyboardStateUpdate
-            . over (player . characterOrientation) characterOrientationUpdate $ game
-        where
-        characterDirectionUpdate = case keyState of
-            Down -> insert direction . delete oppositeDirection
-            Up   -> delete direction
+handleInput event@(EventKey (Char 'w') keyState _ _) game = do
+  traceOldStateIO event game
+  let newGame = handleDirectionKey game North ButtonNorth keyState
+  traceNewStateIO newGame
+  return newGame
+handleInput event@(EventKey (Char 's') keyState _ _) game = do
+  traceOldStateIO event game
+  let newGame = handleDirectionKey game South ButtonSouth keyState
+  traceNewStateIO newGame
+  return newGame
+handleInput event@(EventKey (Char 'a') keyState _ _) game = do
+  traceOldStateIO event game
+  let newGame = handleDirectionKey game West ButtonWest keyState
+  traceNewStateIO newGame
+  return newGame
+handleInput event@(EventKey (Char 'd') keyState _ _) game = do
+  traceOldStateIO event game
+  let newGame = handleDirectionKey game East ButtonEast keyState
+  traceNewStateIO newGame
+  return newGame
+handleInput _ game = return game
 
-        player1KeyboardStateUpdate = case keyState of
-            Down -> insert button
-            Up   -> delete button
 
-        characterOrientationUpdate = case keyState of
-            Down -> const direction
-            Up   -> id
+traceOldStateIO :: Event -> Game -> IO ()
+traceOldStateIO event game = return ()
+  --traceIO $ "EventKey:\n" ++ "\n" ++
+  --  "\t" ++ show event ++ "\n" ++
+  --  "\t" ++ show (game^.player.characterDirection) ++ "\n" ++
+  --  "\t" ++ show (game^.player1KeyboardState) ++ "\n" ++
+  --  "\t" ++ show (game^.gameTime) ++ "\n"
 
-	oppositeDirection = turnAroundDirection direction
 
-        turnAroundDirection North = South
-        turnAroundDirection West  = East
-        turnAroundDirection East  = West
-        turnAroundDirection South = North
+traceNewStateIO :: Game -> IO ()
+traceNewStateIO newGame = return ()
+  -- traceIO $ "\t" ++ show (newGame^.player.characterDirection) ++ "\n" ++
+  --   "\t" ++ show (newGame^.player1KeyboardState)
+
+handleDirectionKey ::
+  Game
+  -> Direction      -- ^ The direction associated with the button.
+  -> KeyboardButton -- ^ The button whose state had changed.
+  -> KeyState       -- ^ Whether the button went Up or Down.
+  -> Game
+handleDirectionKey
+  game
+  direction
+  button
+  keyState =
+    over (player . characterDirection) characterDirectionUpdate
+    . over player1KeyboardState player1KeyboardStateUpdate
+    . over (player . characterOrientation) characterOrientationUpdate $ game
+  where
+  characterDirectionUpdate = case keyState of
+    Down -> insert direction . delete oppositeDirection
+    Up   -> delete direction
+
+  player1KeyboardStateUpdate = case keyState of
+    Down -> insert button
+    Up   -> delete button
+
+  characterOrientationUpdate = case keyState of
+    Down -> const direction
+    Up   -> id
+
+  oppositeDirection = turnAroundDirection direction
+
+
+turnAroundDirection :: Direction -> Direction
+turnAroundDirection North = South
+turnAroundDirection West  = East
+turnAroundDirection East  = West
+turnAroundDirection South = North
+
 
 
 stepGame ::
@@ -287,7 +296,7 @@ initialGame
     = Game
     { _player    = initialPlayer
     , _civilians = []
-    , _items     = []
+    , _items     = [((0, 0), Club)]
     , _player1KeyboardState = empty
     , _player2KeyboardState = empty
     , _gameTime = 0
@@ -296,30 +305,39 @@ initialGame
 
 loadPictureAssets :: IO PictureAssets
 loadPictureAssets =
-  (Map.fromList <$>) <$> forM cartesianProduct $ \(entity, direction, frameIndex) -> do
-    picture <- loadPictureAsset entity direction frameIndex
-    return ((entity, direction, frameIndex), picture)
-  where
-  cartesianProduct = liftA3 ((,,)) entities directions [0..4]
-  entities = [Hero]
-  directions = [North, South, East, West]
-
+  let cartesianProduct = liftA3 ((,,)) entities directions [0..4]
+      entities = [Hero, Club]
+      directions = [North, South, East, West]
+  in ( Map.fromList
+     . (uncurry zip)
+     . (\(a, b) -> (a, catMaybes b))
+     . unzip
+     ) <$>
+     (forM cartesianProduct $ \(entity, direction, frameIndex) -> do
+         maybePicture <- loadPictureAsset entity direction frameIndex
+         return ((entity, direction, frameIndex), maybePicture))
 
 loadPictureAsset ::
   Entity
   -> Direction
   -> Int
-  -> IO Picture
+  -> IO (Maybe Picture)
 loadPictureAsset entity direction frameIndex =
-  fromJust <$> loadJuicyPNG ("assets/" ++ show entity ++ show direction ++ show frameIndex ++ ".png")
+  loadJuicyPNG (
+      "assets/"
+      ++ show entity
+      ++ show direction
+      ++ show frameIndex
+      ++ ".png")
 
 
 main :: IO ()
 main = do
     assets <- loadPictureAssets
+    print . map fst . Map.toList $ assets
     playIO
-        (InWindow "Yasam Sim" (1, 1) (sceneWidth, sceneHeight))
-        black
+        display
+        backColor
         30
         initialGame
         (drawScene assets)
