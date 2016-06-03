@@ -26,9 +26,21 @@ module Main where
 import           Control.Applicative              (liftA3, (<$>))
 import           Control.Arrow                    ((>>>))
 import           Control.Lens
+    ( both
+    , makeLenses
+    , over
+    , (%=)
+    , (&)
+    , (*~)
+    , (+=)
+    , (+~)
+    , (^.)
+    , _2
+    )
 import           Control.Monad                    (forM, (<=<), (>=>))
 import           Control.Monad.State.Strict       (execState)
 import           Data.Char                        (toLower)
+import           Data.List                        (sortOn)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (catMaybes, fromJust)
 import           Data.Monoid                      ((<>))
@@ -88,6 +100,7 @@ data Character
     , _characterSpeed       :: Float
     , _characterWeapon      :: Entity
     , _characterHealth      :: Int
+    , _characterInventory   :: [Entity]
     , _characterEnergy      :: Int
     , _characterState       :: CharacterActionState
     , _characterOrientation :: Direction
@@ -130,24 +143,31 @@ drawScene ::
     PictureAssets
     -> Game
     -> IO Picture
-drawScene pictureAssets game = return (background <> playerPicture' <> itemsPicture')
+drawScene pictureAssets game = return (background <> sortedPictures)
     where
     background =
         rectanglePath
             (fromIntegral sceneWidth)
             (fromIntegral sceneHeight)
         & (polygon >>> color white)
-    itemsPicture' = mconcat [
-      (pictureAssets Map.! (entity, North, 0)) & uncurry translate xy
-      | (xy, entity) <- game^.items]
+    sortedPictures = mconcat . map snd . reverse $ sortOn fst pictures
+    pictures = playerPicture' : itemsPicture'
+    itemsPicture' =
+      [( y
+       , (pictureAssets Map.! (entity, North, 0))
+         & uncurry translate xy
+         )
+      | (xy@(x, y), entity) <- game^.items
+      ]
     playerPicture' =
-        heroSprite
-        & uncurry translate playerDrawPosition
+      ( snd (game^.player.characterPosition)
+      , heroSprite & uncurry translate playerDrawPosition
+      )
     playerDrawPosition =
-        game ^. player
-        & (\p ->
-            (p ^. characterPosition)
-            & (_2 +~ p ^. characterZ))
+      game ^. player
+      & (\p ->
+        (p ^. characterPosition)
+        & (_2 +~ p ^. characterZ))
     heroSprite =
         case game ^. player . characterOrientation of
             North -> cycleSprite (game^.player.characterDirection) Hero North 4 4
@@ -242,7 +262,6 @@ turnAroundDirection North = South
 turnAroundDirection West  = East
 turnAroundDirection East  = West
 turnAroundDirection South = North
-
 
 
 stepGame ::
